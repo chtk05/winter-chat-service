@@ -218,10 +218,10 @@ it("renders a day with inbound but no outbound", () => {
   ]);
 });
 
-it("renders nothing but a loading line before the first response", () => {
+it("renders a loading skeleton, not real stats, before the first response", () => {
   renderDashboard({ summary: null, loading: true });
 
-  expect(screen.getByText("Loading summary…")).toBeInTheDocument();
+  expect(screen.getByTestId("dashboard-skeleton")).toBeInTheDocument();
   expect(screen.queryAllByTestId("stat-value")).toHaveLength(0);
 });
 

@@ -133,7 +133,9 @@ async function ingestEvent(
   const mediaUrl =
     event.messageType === "image" && event.lineMessageId
       ? await downloadAndRehost(event.lineMessageId, line, storage)
-      : null;
+      : event.messageType === "sticker" && event.stickerId
+        ? stickerImageUrl(event.stickerId)
+        : null;
 
   await store.appendInboundMessage({
     conversationId: conversation.id,
@@ -177,6 +179,19 @@ async function downloadAndRehost(
   return uploaded?.url ?? null;
 }
 
+/**
+ * Unlike a photo, a LINE sticker's image is already hosted on LINE's own public
+ * CDN — no Content API round trip and no re-hosting needed, just this URL
+ * pattern, keyed by `stickerId` alone. This is LINE's own widely-documented
+ * sticker resource convention (not something this repo can verify against a
+ * vendored doc the way D-033 verifies Next.js behavior); a sticker whose id
+ * doesn't resolve to a real image degrades to the same "Image unavailable"
+ * state a failed photo re-host already has, via the `<img>`'s `onError`.
+ */
+function stickerImageUrl(stickerId: string): string {
+  return `https://stickershop.line-scdn.net/stickershop/v1/sticker/${stickerId}/android/sticker.png`;
+}
+
 interface LineEvent {
   id: string;
   lineUserId: string;
@@ -184,6 +199,7 @@ interface LineEvent {
   text: string | null;
   lineMessageId: string | null;
   replyToken: string | null;
+  stickerId: string | null;
 }
 
 function readEvents(rawBody: string): LineEvent[] | null {
@@ -243,7 +259,12 @@ function readEvent(raw: unknown): LineEvent | null {
     return null;
   }
 
-  const { id: messageId, type, text } = message as Record<string, unknown>;
+  const {
+    id: messageId,
+    type,
+    text,
+    stickerId,
+  } = message as Record<string, unknown>;
 
   if (typeof type !== "string" || type.length === 0) {
     return null;
@@ -259,5 +280,6 @@ function readEvent(raw: unknown): LineEvent | null {
       typeof event.replyToken === "string" && event.replyToken.length > 0
         ? event.replyToken
         : null,
+    stickerId: typeof stickerId === "string" ? stickerId : null,
   };
 }

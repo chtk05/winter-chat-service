@@ -16,16 +16,16 @@ export function AccessErrorCard({
     >
       <div
         aria-hidden
-        className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#fef2f2] text-[20px] font-semibold text-[#b91c1c]"
+        className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#fef2f2] text-[22px] font-semibold text-[#b91c1c]"
       >
         !
       </div>
 
       <div>
-        <h2 className="tracking-heading text-[20px] font-semibold">
+        <h2 className="tracking-heading text-[22px] font-semibold">
           That access code didn&apos;t work
         </h2>
-        <p className="mt-2 text-[14px] leading-[1.6] text-pretty text-[#475569]">
+        <p className="mt-2 text-[16px] leading-[1.6] text-pretty text-[#475569]">
           {message}
         </p>
       </div>
@@ -34,13 +34,13 @@ export function AccessErrorCard({
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-control bg-primary hover:bg-primary-hover h-10 flex-1 basis-40 text-[14px] font-medium text-[#f8fafc]"
+          className="rounded-control bg-primary hover:bg-primary-hover h-10 flex-1 basis-40 text-[16px] font-medium text-[#f8fafc]"
         >
           Try another code
         </button>
       </div>
 
-      <div className="text-text-muted font-mono text-[11px]">
+      <div className="text-text-muted font-mono text-[13px]">
         error {code}
         {reference ? ` · ref ${reference}` : ""}
       </div>

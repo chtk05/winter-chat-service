@@ -206,6 +206,22 @@ describe("ConversationList", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders a loading skeleton before the first page arrives", () => {
+    renderList({ data: null, loading: true });
+
+    expect(
+      screen.getByTestId("conversation-list-skeleton"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders no skeleton once real rows are showing", () => {
+    renderList({ data: response([conversation("c1")]), loading: false });
+
+    expect(
+      screen.queryByTestId("conversation-list-skeleton"),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders no footer count before any page has arrived", () => {
     renderList({ data: null, loading: true });
     expect(screen.queryByText(/conversations ·/)).not.toBeInTheDocument();
@@ -229,5 +245,40 @@ describe("ConversationList", () => {
     expect(text).not.toContain("Nattapong");
     expect(text).not.toContain("Mia Chen");
     expect(text).not.toContain("Somchai");
+  });
+
+  describe("mobile masthead", () => {
+    it("shows the open/total counts once a page has arrived", () => {
+      renderList({
+        data: response(
+          [
+            conversation("c1", { status: "Open" }),
+            conversation("c2", { status: "Closed" }),
+          ],
+          { open: 1, all: 4 },
+        ),
+      });
+
+      expect(screen.getByText("1 open · 4 total · LINE")).toBeInTheDocument();
+    });
+
+    it("falls back to the channel name alone before any page has arrived", () => {
+      renderList({ data: null, loading: true });
+
+      expect(screen.getAllByText("LINE").length).toBeGreaterThan(0);
+      expect(screen.queryByText(/open ·/)).not.toBeInTheDocument();
+    });
+
+    it("renders the signed-in admin's initials", () => {
+      renderList({ adminName: "Aom Malee" });
+
+      expect(screen.getByText("AM")).toBeInTheDocument();
+    });
+
+    it("renders a placeholder when no admin name is available", () => {
+      renderList({ adminName: null });
+
+      expect(screen.getByText("?")).toBeInTheDocument();
+    });
   });
 });

@@ -34,7 +34,7 @@ export function ConversationRow({
       <div
         aria-hidden
         className={[
-          "flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border text-[12px] font-medium",
+          "flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full border text-[14px] font-medium",
           active
             ? "border-primary bg-primary text-[#f8fafc]"
             : "border-border-default bg-border-subtle text-[#475569]",
@@ -53,16 +53,16 @@ export function ConversationRow({
 
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
-          <div className="truncate text-[13px] font-semibold">
+          <div className="truncate text-[15px] font-semibold">
             {contact.displayName}
           </div>
-          <div className="text-text-muted flex-none text-[11px]">
+          <div className="text-text-muted flex-none text-[13px]">
             {formatRowTimestamp(lastMessageAt, now)}
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <div className="text-text-secondary min-w-0 flex-1 truncate text-[12px]">
+          <div className="text-text-secondary min-w-0 flex-1 truncate text-[14px]">
             {snippet ?? ""}
           </div>
           {unread && (
@@ -75,7 +75,7 @@ export function ConversationRow({
         </div>
 
         <div className="mt-1.5 flex items-center gap-1.5">
-          <span className="border-border-default rounded-[4px] border px-1.5 py-px font-mono text-[10px] text-[#475569]">
+          <span className="border-border-default rounded-[4px] border px-1.5 py-px font-mono text-[12px] text-[#475569]">
             {channel}
           </span>
           <StatusPill status={status} />

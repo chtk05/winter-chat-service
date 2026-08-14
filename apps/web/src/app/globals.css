@@ -121,6 +121,17 @@
   select {
     font: inherit;
   }
+
+  /* Tailwind v4's preflight resets `button` to `cursor: default` (matching the
+     native platform default) rather than v3's `cursor: pointer` — restored here,
+     plus the ARIA roles this app uses for non-<button> clickable elements
+     (`conversation-row.tsx`'s `role="option"` rows). */
+  button:not(:disabled),
+  [role="button"],
+  [role="option"],
+  [role="tab"] {
+    cursor: pointer;
+  }
 }
 
 /* The design's bubble geometry: 16px all round, 4px on the tail corner. */
