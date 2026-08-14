@@ -5,18 +5,27 @@ import { LoginScreen, type AuthGate } from "../login-screen";
 import { SignInScreen } from "../sign-in-screen";
 import { ApiError, joinWorkspace } from "@/lib/api/client";
 
-// `jest.mock` is hoisted above the imports by the SWC transform, so the static import
-// above receives the mocked `joinWorkspace` while `ApiError` stays the real class.
 jest.mock("@/lib/api/client", () => {
   const actual = jest.requireActual("@/lib/api/client");
   return { ...actual, joinWorkspace: jest.fn() };
 });
 
+jest.mock("@/components/ui/toast", () => ({
+  toastManager: { add: jest.fn() },
+}));
+
 const joinWorkspaceMock = joinWorkspace as jest.MockedFunction<
   typeof joinWorkspace
 >;
 
-beforeEach(() => joinWorkspaceMock.mockReset());
+const { toastManager } = jest.requireMock("@/components/ui/toast") as {
+  toastManager: { add: jest.Mock };
+};
+
+beforeEach(() => {
+  joinWorkspaceMock.mockReset();
+  toastManager.add.mockReset();
+});
 
 function renderGate(
   gate: AuthGate,
@@ -39,23 +48,21 @@ describe("D-036 gate routing — the three states, which is where a security bug
     renderGate({ status: "anonymous" });
 
     expect(
-      screen.getByRole("button", { name: /sign in with line/i }),
+      screen.getByRole("button", { name: /continue with line/i }),
     ).toBeInTheDocument();
-    expect(screen.queryByLabelText(/access code/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/invite code/i)).not.toBeInTheDocument();
   });
 
   it("shows the JOIN step to an authenticated-but-not-joined user", () => {
     renderGate({ status: "authenticated", displayName: "Aom" });
 
-    expect(screen.getByLabelText(/access code/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/invite code/i)).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /sign in with line/i }),
+      screen.queryByRole("button", { name: /continue with line/i }),
     ).not.toBeInTheDocument();
   });
 
   it("does NOT show the console to an authenticated-but-not-joined user", () => {
-    // Treating "has a valid session" as "is a member" would admit any LINE user on the
-    // platform. The join screen is what stands between the two.
     const props = renderGate({ status: "authenticated", displayName: "Aom" });
 
     expect(props.onAlreadyMember).not.toHaveBeenCalled();
@@ -66,9 +73,9 @@ describe("D-036 gate routing — the three states, which is where a security bug
     const props = renderGate({ status: "member" });
 
     expect(props.onAlreadyMember).toHaveBeenCalled();
-    expect(screen.queryByLabelText(/access code/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/invite code/i)).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /sign in with line/i }),
+      screen.queryByRole("button", { name: /continue with line/i }),
     ).not.toBeInTheDocument();
   });
 });
@@ -78,13 +85,14 @@ describe("SignInScreen — gate one (D-035)", () => {
     const onSignIn = jest.fn();
     render(<SignInScreen onSignIn={onSignIn} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /sign in with line/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /continue with line/i }),
+    );
 
     expect(onSignIn).toHaveBeenCalledTimes(1);
   });
 
   it("returns to the entry point with an alert when LINE sign-in was cancelled", () => {
-    // Negative case: a cancelled round trip must not leave a blank state.
     render(
       <SignInScreen
         onSignIn={jest.fn()}
@@ -94,7 +102,7 @@ describe("SignInScreen — gate one (D-035)", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(/did not complete/i);
     expect(
-      screen.getByRole("button", { name: /sign in with line/i }),
+      screen.getByRole("button", { name: /continue with line/i }),
     ).toBeInTheDocument();
   });
 
@@ -113,10 +121,10 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       <JoinScreen signedInAs="Aom" onJoined={onJoined} onSignOut={jest.fn()} />,
     );
 
-    fireEvent.change(screen.getByLabelText(/access code/i), {
+    fireEvent.change(screen.getByLabelText(/invite code/i), {
       target: { value: "  wc-live  " },
     });
-    fireEvent.click(screen.getByRole("button", { name: /enter workspace/i }));
+    fireEvent.click(screen.getByRole("button", { name: /join workspace/i }));
 
     await waitFor(() =>
       expect(joinWorkspaceMock).toHaveBeenCalledWith("wc-live"),
@@ -133,7 +141,7 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    expect(screen.getByText(/signed in as/i)).toBeInTheDocument();
+    expect(screen.getByText(/signed in with line/i)).toBeInTheDocument();
     expect(screen.getByText("Aom")).toBeInTheDocument();
   });
 
@@ -146,7 +154,7 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    expect(screen.getByText(/your LINE account/i)).toBeInTheDocument();
+    expect(screen.getByText("your LINE account")).toBeInTheDocument();
   });
 
   it("offers a way back out for the wrong account", () => {
@@ -159,9 +167,36 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /not you/i }));
+    fireEvent.click(screen.getByRole("button", { name: /change/i }));
 
     expect(onSignOut).toHaveBeenCalled();
+  });
+
+  it("reveals the invite code on request — only reachable post-LINE-Login, unlike the public SignInScreen", () => {
+    render(
+      <JoinScreen
+        signedInAs="Aom"
+        onJoined={jest.fn()}
+        onSignOut={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /ask an admin/i }));
+
+    expect(toastManager.add).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description: expect.stringContaining("CDj798"),
+      }),
+    );
+  });
+
+  it("does NOT expose the invite code on the public SignInScreen — that gate has no authenticated visitor yet", () => {
+    render(<SignInScreen onSignIn={jest.fn()} />);
+
+    expect(
+      screen.queryByRole("button", { name: /code/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/CDj798/)).not.toBeInTheDocument();
   });
 
   it("renders the error card with the D-021 code on a wrong join code", async () => {
@@ -177,10 +212,10 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       <JoinScreen signedInAs="Aom" onJoined={onJoined} onSignOut={jest.fn()} />,
     );
 
-    fireEvent.change(screen.getByLabelText(/access code/i), {
+    fireEvent.change(screen.getByLabelText(/invite code/i), {
       target: { value: "WRONG" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /enter workspace/i }));
+    fireEvent.click(screen.getByRole("button", { name: /join workspace/i }));
 
     await screen.findByRole("alert");
     expect(screen.getByText(/error INVALID_ACCESS_CODE/)).toBeInTheDocument();
@@ -197,7 +232,7 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    const submit = screen.getByRole("button", { name: /enter workspace/i });
+    const submit = screen.getByRole("button", { name: /join workspace/i });
     expect(submit).toBeDisabled();
 
     fireEvent.click(submit);
@@ -213,12 +248,12 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/access code/i), {
+    fireEvent.change(screen.getByLabelText(/invite code/i), {
       target: { value: "    " },
     });
 
     expect(
-      screen.getByRole("button", { name: /enter workspace/i }),
+      screen.getByRole("button", { name: /join workspace/i }),
     ).toBeDisabled();
     expect(joinWorkspaceMock).not.toHaveBeenCalled();
   });
@@ -233,10 +268,10 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/access code/i), {
+    fireEvent.change(screen.getByLabelText(/invite code/i), {
       target: { value: "WC" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /enter workspace/i }));
+    fireEvent.click(screen.getByRole("button", { name: /join workspace/i }));
 
     await screen.findByRole("alert");
     expect(screen.getByText(/error NETWORK_ERROR/)).toBeInTheDocument();
@@ -257,15 +292,15 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/access code/i), {
+    fireEvent.change(screen.getByLabelText(/invite code/i), {
       target: { value: "WRONG" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /enter workspace/i }));
+    fireEvent.click(screen.getByRole("button", { name: /join workspace/i }));
     await screen.findByRole("alert");
 
     fireEvent.click(screen.getByRole("button", { name: /try another code/i }));
 
-    expect(screen.getByLabelText(/access code/i)).toHaveValue("");
+    expect(screen.getByLabelText(/invite code/i)).toHaveValue("");
   });
 
   it("omits the ref clause when the error body carries none", async () => {
@@ -283,10 +318,10 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText(/access code/i), {
+    fireEvent.change(screen.getByLabelText(/invite code/i), {
       target: { value: "WRONG" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /enter workspace/i }));
+    fireEvent.click(screen.getByRole("button", { name: /join workspace/i }));
     await screen.findByRole("alert");
 
     expect(screen.queryByText(/ref /)).not.toBeInTheDocument();
@@ -301,8 +336,6 @@ describe("JoinScreen — gate two (D-036, D-038, D-042)", () => {
       />,
     );
 
-    // D-017 still bans the invented claims; D-035 only makes the LINE *account* language
-    // accurate, not the single-use or expiry claims about the code.
     expect(container.textContent).not.toMatch(/single.use/i);
     expect(container.textContent).not.toMatch(/expire/i);
     expect(container.textContent).not.toMatch(/7 days/i);

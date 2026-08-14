@@ -4,14 +4,6 @@ import { ConversationRow } from "./conversation-row";
 import { FilterPills, type StatusFilter } from "./filter-pills";
 import type { ConversationListResponse } from "@/lib/api/types";
 
-/**
- * T-017: the design's left pane — search box, filter pills, rows, footer count.
- *
- * Filtering and search are **server-side** (`GET /conversations` takes `status`
- * and `search`; D-021). This component renders the page it is given and reports
- * control changes upward; it does not re-filter locally, which would disagree
- * with the footer totals the server computed.
- */
 export function ConversationList({
   data,
   search,
@@ -22,6 +14,8 @@ export function ConversationList({
   onSelect,
   loading = false,
   now,
+  listVisible = true,
+  mobileVisible = false,
 }: {
   data: ConversationListResponse | null;
   search: string;
@@ -32,12 +26,21 @@ export function ConversationList({
   onSelect: (id: string) => void;
   loading?: boolean;
   now?: Date;
+  listVisible?: boolean;
+  mobileVisible?: boolean;
 }) {
   const items = data?.items ?? [];
   const totals = data?.totals;
 
   return (
-    <div className="border-border-default flex min-h-0 max-w-[300px] flex-1 basis-[300px] flex-col border-r max-lg:hidden lg:min-w-[240px]">
+    <div
+      className={[
+        "border-border-default min-h-0 flex-col border-r",
+        mobileVisible ? "flex flex-1" : "hidden",
+        listVisible ? "lg:flex" : "lg:hidden",
+        "lg:max-w-[300px] lg:min-w-[240px] lg:flex-1 lg:basis-[300px]",
+      ].join(" ")}
+    >
       <div className="border-border-default flex flex-col gap-2.5 border-b p-3.5">
         <input
           type="search"
@@ -65,12 +68,6 @@ export function ConversationList({
           />
         ))}
 
-        {/*
-          Negative cases (T-017): an empty result renders an empty state rather
-          than a stale list or a spinner. The message distinguishes "nothing
-          matched your query" from "there is nothing here at all", because those
-          need different actions from the admin.
-        */}
         {!loading && items.length === 0 && (
           <p className="text-text-secondary px-2 py-6 text-center text-[13px]">
             {search.trim() || filter !== "All"

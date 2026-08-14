@@ -1,15 +1,5 @@
 "use client";
 
-/**
- * T-012 / D-018: the composer's "Reply via" selector.
- *
- * LINE is the only enabled option. Facebook and WhatsApp render exactly as the
- * design renders them — disabled, 0.45 opacity, `not-allowed` cursor, "Not
- * connected yet" title — as **static presentational chrome**. There is no
- * channel abstraction, no adapter interface, and no second integration behind
- * them (D-018), and clicking one must fire nothing.
- */
-
 export const CHANNELS = [
   { key: "LINE", label: "LINE", enabled: true },
   { key: "Facebook", label: "Facebook", enabled: false },

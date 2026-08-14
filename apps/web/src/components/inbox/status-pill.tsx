@@ -1,7 +1,6 @@
 import { designTokens } from "@/lib/design-tokens";
 import type { ConversationStatus } from "@/lib/api/types";
 
-/** The design's status pill, coloured from the D-015 table. D-019 fixes the three values. */
 export function StatusPill({
   status,
   size = "sm",

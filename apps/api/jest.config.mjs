@@ -12,7 +12,13 @@ const config = {
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
+  testPathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    // D-055: phase 3. These need both apps running and a real database, so they must never
+    // run under `npm test`, which stays hermetic. `jest.integration.config.mjs` runs them.
+    "<rootDir>/src/__integration__/",
+  ],
   collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts"],
 };
 

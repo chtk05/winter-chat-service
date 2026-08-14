@@ -1,29 +1,37 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ThreadPanel } from "../thread-panel";
 import type { Conversation, Message } from "@/lib/api/types";
-
-/**
- * T-018 verification, against a mocked API (D-022: phase 2 never touches a real
- * route handler, database, or LINE).
- */
 
 jest.mock("@/lib/api/client", () => ({
   listMessages: jest.fn(),
   sendMessage: jest.fn(),
   retryMessage: jest.fn(),
   setConversationStatus: jest.fn(),
+  uploadImage: jest.fn(),
 }));
 
-/* eslint-disable @typescript-eslint/no-require-imports */
+jest.mock("@/components/ui/toast", () => ({
+  toastManager: { add: jest.fn() },
+}));
+
 const api = require("@/lib/api/client") as {
   listMessages: jest.Mock;
   sendMessage: jest.Mock;
   retryMessage: jest.Mock;
   setConversationStatus: jest.Mock;
+  uploadImage: jest.Mock;
 };
-/* eslint-enable @typescript-eslint/no-require-imports */
+const { toastManager } = require("@/components/ui/toast") as {
+  toastManager: { add: jest.Mock };
+};
 
 const CONVERSATION: Conversation = {
   id: "c1",
@@ -84,7 +92,28 @@ beforeEach(() => {
     hasMore: false,
     nextCursor: null,
   });
+  URL.createObjectURL = jest.fn(() => "blob:preview-1");
+  URL.revokeObjectURL = jest.fn();
 });
+
+function imageFile(name = "photo.jpg"): File {
+  return new File([new Uint8Array([1, 2, 3])], name, { type: "image/jpeg" });
+}
+
+function imagePersisted(overrides: Partial<Message> = {}): Message {
+  return {
+    id: "server-img-1",
+    conversationId: "c1",
+    clientId: "client-uuid-1",
+    direction: "outbound",
+    messageType: "image",
+    text: null,
+    mediaUrl: "https://storage.test/chat-media/outbound/x.jpg",
+    deliveryStatus: "sending",
+    createdAt: FIXED_NOW.toISOString(),
+    ...overrides,
+  };
+}
 
 describe("optimistic send", () => {
   it("renders a sending bubble immediately, before the server answers", async () => {
@@ -164,8 +193,6 @@ describe("optimistic send", () => {
     await waitFor(() => expect(api.sendMessage).toHaveBeenCalledTimes(1));
   });
 
-  /* --------------------------------------------------- negative cases --- */
-
   it("cannot send an empty message", async () => {
     renderPanel();
 
@@ -226,7 +253,6 @@ describe("Send & close (D-019 atomicity)", () => {
     );
   });
 
-  /** The required negative case: send fails → status must NOT change. */
   it("leaves the status visibly unchanged when the send fails", async () => {
     api.sendMessage.mockRejectedValue(new Error("network"));
     const { onConversationChange } = renderPanel();
@@ -243,6 +269,49 @@ describe("Send & close (D-019 atomicity)", () => {
 
     expect(onConversationChange).not.toHaveBeenCalled();
     expect(screen.getByLabelText("Conversation status")).toHaveValue("Open");
+  });
+});
+
+describe("status change confirmation toast", () => {
+  it("shows a success toast naming the new status", async () => {
+    api.setConversationStatus.mockResolvedValue({
+      ...CONVERSATION,
+      status: "Pending",
+    });
+
+    renderPanel();
+    await userEvent.selectOptions(
+      screen.getByLabelText("Conversation status"),
+      "Pending",
+    );
+
+    await waitFor(() =>
+      expect(toastManager.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Status changed to Pending",
+          type: "success",
+        }),
+      ),
+    );
+  });
+
+  it("shows an error toast, and reverts the status, when the change fails", async () => {
+    api.setConversationStatus.mockRejectedValue(new Error("network"));
+    const { onConversationChange } = renderPanel();
+
+    await userEvent.selectOptions(
+      screen.getByLabelText("Conversation status"),
+      "Closed",
+    );
+
+    await waitFor(() =>
+      expect(toastManager.add).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "error" }),
+      ),
+    );
+    expect(onConversationChange).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "Open" }),
+    );
   });
 });
 
@@ -267,7 +336,6 @@ describe("retry", () => {
       text: "On the 12th.",
       clientId: "client-uuid-1",
     });
-    // One message, not two — the idempotency key held.
     expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
   });
 
@@ -326,6 +394,125 @@ describe("retry", () => {
       ),
     );
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+describe("image send (D-058)", () => {
+  it("renders a local preview bubble immediately, before upload resolves", async () => {
+    let resolveUpload: (result: { url: string }) => void = () => {};
+    api.uploadImage.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpload = resolve;
+      }),
+    );
+    api.sendMessage.mockResolvedValue(imagePersisted());
+
+    renderPanel();
+    const input = screen.getByTestId("image-file-input");
+    await userEvent.upload(input, imageFile());
+
+    const bubble = await screen.findByTestId("message-bubble");
+    expect(bubble).toHaveAttribute("data-delivery-status", "sending");
+    expect(bubble.querySelector("img")).toHaveAttribute(
+      "src",
+      "blob:preview-1",
+    );
+
+    resolveUpload({ url: "https://storage.test/chat-media/outbound/x.jpg" });
+  });
+
+  it("uploads then sends with the resulting mediaUrl and the generated clientId", async () => {
+    api.uploadImage.mockResolvedValue({
+      url: "https://storage.test/chat-media/outbound/x.jpg",
+    });
+    api.sendMessage.mockResolvedValue(imagePersisted());
+
+    renderPanel();
+    await userEvent.upload(screen.getByTestId("image-file-input"), imageFile());
+
+    await waitFor(() =>
+      expect(api.uploadImage).toHaveBeenCalledWith(imageFile()),
+    );
+    await waitFor(() =>
+      expect(api.sendMessage).toHaveBeenCalledWith("c1", {
+        mediaUrl: "https://storage.test/chat-media/outbound/x.jpg",
+        clientId: "client-uuid-1",
+      }),
+    );
+  });
+
+  it("reconciles the preview bubble in place with the persisted row", async () => {
+    api.uploadImage.mockResolvedValue({
+      url: "https://storage.test/chat-media/outbound/x.jpg",
+    });
+    api.sendMessage.mockResolvedValue(imagePersisted({ sentVia: "push" }));
+
+    renderPanel();
+    await userEvent.upload(screen.getByTestId("image-file-input"), imageFile());
+
+    await waitFor(() =>
+      expect(screen.getByText("sent to LINE")).toBeInTheDocument(),
+    );
+    expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
+  });
+
+  it("marks a failed upload failed, and offers retry", async () => {
+    api.uploadImage.mockRejectedValue(new Error("network"));
+
+    renderPanel();
+    await userEvent.upload(screen.getByTestId("image-file-input"), imageFile());
+
+    const bubble = await screen.findByTestId("message-bubble");
+    await waitFor(() =>
+      expect(bubble).toHaveAttribute("data-delivery-status", "failed"),
+    );
+    expect(
+      within(bubble).getByRole("button", { name: "Retry" }),
+    ).toBeInTheDocument();
+  });
+
+  it("retry RE-UPLOADS the cached file rather than resending the local preview url", async () => {
+    api.uploadImage.mockRejectedValueOnce(new Error("network"));
+
+    renderPanel();
+    await userEvent.upload(screen.getByTestId("image-file-input"), imageFile());
+    await screen.findByRole("button", { name: "Retry" });
+
+    api.uploadImage.mockResolvedValueOnce({
+      url: "https://storage.test/chat-media/outbound/x.jpg",
+    });
+    api.sendMessage.mockResolvedValueOnce(imagePersisted());
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.uploadImage).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(api.sendMessage).toHaveBeenCalledWith("c1", {
+        mediaUrl: "https://storage.test/chat-media/outbound/x.jpg",
+        clientId: "client-uuid-1",
+      }),
+    );
+    expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
+  });
+
+  it("rejects a non-image file with an error toast, never calls onSendImage", async () => {
+    renderPanel();
+    const input = screen.getByTestId("image-file-input");
+    const video = new File([new Uint8Array([1])], "clip.mp4", {
+      type: "video/mp4",
+    });
+
+    fireEvent.change(input, { target: { files: [video] } });
+
+    await waitFor(() =>
+      expect(toastManager.add).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "That file isn't an image",
+          type: "error",
+        }),
+      ),
+    );
+    expect(api.uploadImage).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("message-bubble")).not.toBeInTheDocument();
   });
 });
 

@@ -45,7 +45,6 @@ function request(path: string, token?: string): NextRequest {
   });
 }
 
-/** `NextResponse.next()` carries this header; a rewritten/blocked response does not. */
 function passedThrough(response: { headers: Headers }): boolean {
   return response.headers.get("x-middleware-next") === "1";
 }
@@ -68,8 +67,6 @@ describe("middleware — positive cases (D-039, D-046)", () => {
   });
 
   it("lets the LINE webhook through with no token at all (D-012)", async () => {
-    // LINE's servers call this directly, not through apps/web's proxy, and D-012
-    // authenticates it with an X-Line-Signature HMAC instead.
     const response = await middleware(request("/api/line/webhook"));
 
     expect(passedThrough(response)).toBe(true);
@@ -118,8 +115,6 @@ describe("middleware — negative cases", () => {
   });
 
   it("answers 403 NOT_A_MEMBER for a valid token whose `member` claim is false (D-036, D-051)", async () => {
-    // The single most likely place for a security bug: treating "has a valid token" as
-    // "is a member" would admit any LINE user on the platform.
     const response = await middleware(
       request("/api/conversations", await mintToken({ member: false })),
     );
@@ -159,8 +154,6 @@ describe("middleware — negative cases", () => {
   });
 
   it("still lets the webhook through when the environment is broken", async () => {
-    // The webhook check precedes the config read: LINE must not be told 500 for a
-    // misconfiguration it cannot fix, or it will retry the event indefinitely.
     delete process.env.SESSION_SECRET;
 
     const response = await middleware(request("/api/line/webhook"));

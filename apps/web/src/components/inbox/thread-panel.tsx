@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Composer } from "./composer";
 import { ThreadView } from "./thread-view";
+import { toastManager } from "@/components/ui/toast";
 import {
   markFailed,
   mergeOlderPage,
+  optimisticImageMessage,
   optimisticMessage,
   upsertMessage,
 } from "@/lib/thread/messages";
@@ -15,6 +17,7 @@ import {
   retryMessage,
   sendMessage,
   setConversationStatus,
+  uploadImage,
 } from "@/lib/api/client";
 import type {
   Conversation,
@@ -22,18 +25,6 @@ import type {
   Message,
 } from "@/lib/api/types";
 
-/**
- * T-018 container: owns the thread's message state, the optimistic bubble, and
- * the D-019 "Send & close" atomicity rule.
- *
- * D-021 makes send **202 Accepted** — the message comes back `sending` and
- * resolves to `sent`/`failed` over Supabase Realtime (D-005), not in the
- * response. So this component never marks a message `sent` itself; it only
- * reconciles the optimistic bubble with the persisted row, or marks it `failed`
- * when the request never landed.
- */
-
-/** Injectable so tests do not depend on a global UUID source. */
 export type IdFactory = () => string;
 
 const defaultIdFactory: IdFactory = () => crypto.randomUUID();
@@ -47,6 +38,8 @@ export function ThreadPanel({
   onToggleDetails,
   idFactory = defaultIdFactory,
   now = () => new Date(),
+  mobileVisible = true,
+  onBackToList,
 }: {
   conversation: Conversation | null;
   onConversationChange: (conversation: Conversation) => void;
@@ -56,6 +49,8 @@ export function ThreadPanel({
   onToggleDetails: () => void;
   idFactory?: IdFactory;
   now?: () => Date;
+  mobileVisible?: boolean;
+  onBackToList?: () => void;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -63,16 +58,10 @@ export function ThreadPanel({
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const pendingImageFiles = useRef(new Map<string, File>());
+
   const conversationId = conversation?.id ?? null;
 
-  /*
-   * D-026: the initial page is 30; the client module owns the number.
-   *
-   * The parent keys this component by conversation id, so switching threads
-   * remounts it with empty state. That is why the effect does not reset
-   * `messages` itself — a synchronous setState in an effect body triggers the
-   * cascading render React's `set-state-in-effect` rule warns about.
-   */
   useEffect(() => {
     if (!conversationId) return;
 
@@ -94,7 +83,6 @@ export function ThreadPanel({
     };
   }, [conversationId]);
 
-  /** D-026: pages of 50, and never twice at once. */
   const handleLoadMore = useCallback(async () => {
     if (!conversationId || loadingMore || !oldestCursor) return;
 
@@ -124,7 +112,6 @@ export function ThreadPanel({
         now: now(),
       });
 
-      // The bubble appears before the network call, keyed by clientId.
       setMessages((current) => upsertMessage(current, optimistic));
 
       try {
@@ -135,11 +122,6 @@ export function ThreadPanel({
         });
         setMessages((current) => upsertMessage(current, persisted));
 
-        /*
-         * D-019: "Send & close" sets Closed only if the send succeeded — both,
-         * or neither. The server owns the transition via `closeAfterSend`; the
-         * UI reflects it only after the 202, never optimistically.
-         */
         if (closeAfterSend) {
           onConversationChange({ ...conversation, status: "Closed" });
         }
@@ -147,10 +129,49 @@ export function ThreadPanel({
         setMessages((current) =>
           markFailed(current, clientId, "Not delivered"),
         );
-        // Status is deliberately left untouched here.
       }
     },
     [conversation, idFactory, now, onConversationChange],
+  );
+
+  const attemptImageSend = useCallback(
+    async (conversationId: string, clientId: string, file: File) => {
+      try {
+        const { url: mediaUrl } = await uploadImage(file);
+        const persisted = await sendMessage(conversationId, {
+          mediaUrl,
+          clientId,
+        });
+        pendingImageFiles.current.delete(clientId);
+        setMessages((current) => upsertMessage(current, persisted));
+      } catch {
+        setMessages((current) =>
+          markFailed(current, clientId, "Not delivered"),
+        );
+      }
+    },
+    [],
+  );
+
+  const handleSendImage = useCallback(
+    (file: File) => {
+      if (!conversation) return;
+
+      const clientId = idFactory();
+      pendingImageFiles.current.set(clientId, file);
+
+      const previewUrl = URL.createObjectURL(file);
+      const optimistic = optimisticImageMessage({
+        conversationId: conversation.id,
+        previewUrl,
+        clientId,
+        now: now(),
+      });
+
+      setMessages((current) => upsertMessage(current, optimistic));
+      void attemptImageSend(conversation.id, clientId, file);
+    },
+    [conversation, idFactory, now, attemptImageSend],
   );
 
   const handleRetry = useCallback(
@@ -159,6 +180,33 @@ export function ThreadPanel({
 
       const target = messages.find((message) => message.id === messageId);
       if (!target) return;
+
+      const neverReachedServer =
+        target.clientId != null && target.id === target.clientId;
+
+      if (neverReachedServer && target.messageType === "image") {
+        const file = pendingImageFiles.current.get(target.clientId!);
+        if (!file) {
+          setMessages((current) =>
+            upsertMessage(current, {
+              ...target,
+              deliveryStatus: "failed",
+              failureReason: "Choose the image again to retry.",
+            }),
+          );
+          return;
+        }
+
+        setMessages((current) =>
+          upsertMessage(current, {
+            ...target,
+            deliveryStatus: "sending",
+            failureReason: null,
+          }),
+        );
+        await attemptImageSend(conversation.id, target.clientId!, file);
+        return;
+      }
 
       setMessages((current) =>
         upsertMessage(current, {
@@ -169,19 +217,12 @@ export function ThreadPanel({
       );
 
       try {
-        /*
-         * A bubble whose id still equals its clientId never reached the server,
-         * so there is no row to retry — it is re-sent under the same clientId,
-         * which D-021 makes the idempotency key. A message the server did
-         * persist is retried through its own endpoint (D-013).
-         */
-        const persisted =
-          target.clientId && target.id === target.clientId
-            ? await sendMessage(conversation.id, {
-                text: target.text ?? "",
-                clientId: target.clientId,
-              })
-            : await retryMessage(messageId);
+        const persisted = neverReachedServer
+          ? await sendMessage(conversation.id, {
+              text: target.text ?? "",
+              clientId: target.clientId!,
+            })
+          : await retryMessage(messageId);
 
         setMessages((current) => upsertMessage(current, persisted));
       } catch {
@@ -194,7 +235,7 @@ export function ThreadPanel({
         );
       }
     },
-    [conversation, messages],
+    [conversation, messages, attemptImageSend],
   );
 
   const handleStatusChange = useCallback(
@@ -203,9 +244,19 @@ export function ThreadPanel({
       try {
         const updated = await setConversationStatus(conversation.id, status);
         onConversationChange(updated);
+        toastManager.add({
+          title: `Status changed to ${status}`,
+          type: "success",
+          timeout: 6000,
+        });
       } catch {
-        // Negative case: a rejected change must not appear to have taken.
         onConversationChange({ ...conversation });
+        toastManager.add({
+          title: "Could not change status",
+          description: "Please try again.",
+          type: "error",
+          timeout: 8000,
+        });
       }
     },
     [conversation, onConversationChange],
@@ -225,11 +276,14 @@ export function ThreadPanel({
       onToggleList={onToggleList}
       detailsVisible={detailsVisible}
       onToggleDetails={onToggleDetails}
+      mobileVisible={mobileVisible}
+      onBackToList={onBackToList}
       composer={
         conversation ? (
           <Composer
             contactName={conversation.contact.displayName}
             onSend={handleSend}
+            onSendImage={handleSendImage}
           />
         ) : null
       }

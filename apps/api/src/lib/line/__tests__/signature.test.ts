@@ -15,8 +15,6 @@ describe("isWebhookSignatureValid — D-012", () => {
   });
 
   it("accepts a body containing non-ASCII text", () => {
-    // Thai text is the expected case for this product, and a utf8/latin1 mix-up in the
-    // HMAC would pass every ASCII test and fail in production.
     const thai = JSON.stringify({ events: [{ text: "สวัสดีครับ" }] });
 
     expect(isWebhookSignatureValid(thai, sign(thai), SECRET)).toBe(true);
@@ -68,8 +66,6 @@ describe("isWebhookSignatureValid — negative cases required by D-012", () => {
   ])(
     "rejects a signature that is %s, without throwing",
     (_label, signature) => {
-      // `timingSafeEqual` throws on a length mismatch; a throw here would become a 500 and
-      // tell an attacker their guess had the wrong shape.
       expect(() =>
         isWebhookSignatureValid(BODY, signature, SECRET),
       ).not.toThrow();
@@ -78,7 +74,6 @@ describe("isWebhookSignatureValid — negative cases required by D-012", () => {
   );
 
   it("rejects everything when the channel secret is empty", () => {
-    // Otherwise a deployment missing the secret would accept a forgeable HMAC.
     expect(isWebhookSignatureValid(BODY, sign(BODY, ""), "")).toBe(false);
   });
 });

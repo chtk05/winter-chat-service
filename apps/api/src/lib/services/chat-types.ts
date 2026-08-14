@@ -1,17 +1,8 @@
-/**
- * The row shapes the chat services read, and the DTOs they return.
- *
- * The DTOs are transcribed from `openapi.yaml` (D-021, accepted by D-024) and may not
- * carry a field the contract does not define (§3.2). `apps/web/src/lib/api/types.ts` is
- * the same contract on the other side; the two must agree.
- */
-
 export type ConversationStatus = "Open" | "Pending" | "Closed";
 export type MessageDirection = "inbound" | "outbound";
 export type DeliveryStatus = "sending" | "sent" | "failed";
 export type SentVia = "reply" | "push";
 
-/** D-019: the statuses a caller may set, used to validate `PATCH` input. */
 export const CONVERSATION_STATUSES: readonly ConversationStatus[] = [
   "Open",
   "Pending",
@@ -26,8 +17,6 @@ export function isConversationStatus(
     (CONVERSATION_STATUSES as readonly string[]).includes(value)
   );
 }
-
-/* ------------------------------------------------------------------ rows --- */
 
 export interface ContactRow {
   id: string;
@@ -52,13 +41,12 @@ export interface MessageRow {
   direction: MessageDirection;
   messageType: string;
   text: string | null;
+  mediaUrl: string | null;
   deliveryStatus: DeliveryStatus | null;
   failureReason: string | null;
   sentVia: SentVia | null;
   createdAt: Date;
 }
-
-/* ------------------------------------------------------------------ DTOs --- */
 
 export interface ContactDto {
   id: string;
@@ -89,6 +77,7 @@ export interface MessageDto {
   direction: MessageDirection;
   messageType: string;
   text: string | null;
+  mediaUrl: string | null;
   deliveryStatus: DeliveryStatus | null;
   failureReason: string | null;
   sentVia: SentVia | null;
@@ -99,8 +88,6 @@ export function toContactDto(contact: ContactRow): ContactDto {
   return {
     id: contact.id,
     lineUserId: contact.lineUserId,
-    // D-013: the contract requires a display name and records the LINE user id as the
-    // fallback when the profile fetch failed. The column is nullable; the contract is not.
     displayName: contact.displayName ?? contact.lineUserId,
     avatarUrl: contact.avatarUrl,
     firstSeenAt: contact.firstSeenAt.toISOString(),
@@ -118,7 +105,6 @@ export function toConversationSummaryDto(
     unread: conversation.unread,
     ...(snippet === undefined ? {} : { snippet }),
     lastMessageAt: conversation.lastMessageAt.toISOString(),
-    // D-018: always LINE. The other channels are inert chrome, not a data dimension.
     channel: "LINE",
   };
 }
@@ -131,6 +117,7 @@ export function toMessageDto(message: MessageRow): MessageDto {
     direction: message.direction,
     messageType: message.messageType,
     text: message.text,
+    mediaUrl: message.mediaUrl,
     deliveryStatus: message.deliveryStatus,
     failureReason: message.failureReason,
     sentVia: message.sentVia,

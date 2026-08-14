@@ -1,11 +1,3 @@
-/**
- * D-040 records the proxy and its token minting as PHASE 1 work despite living in
- * `apps/web` — a route handler tested with doubles, rendering nothing. It therefore runs
- * in the node environment, not this app's default jsdom: `jose` needs `TextEncoder`, and
- * D-022 forbids a backend task from rendering a component anyway.
- *
- * @jest-environment node
- */
 import { jwtVerify } from "jose";
 import { NextRequest } from "next/server";
 
@@ -66,7 +58,6 @@ function request(
   });
 }
 
-/** The upstream URL and init the proxy actually called with. */
 function upstreamCall(): { url: string; init: RequestInit } {
   const [url, init] = fetchMock.mock.calls[0] as [URL, RequestInit];
   return { url: url.toString(), init };
@@ -125,7 +116,6 @@ describe("gateway proxy — positive cases (T-027, D-040, D-041, D-042)", () => 
       new TextEncoder().encode(SECRET),
     );
 
-    // D-046's bootstrap: the join endpoint must be reachable by a non-member.
     expect(payload.member).toBe(false);
   });
 
@@ -150,8 +140,25 @@ describe("gateway proxy — positive cases (T-027, D-040, D-041, D-042)", () => 
       params(["auth", "join"]),
     );
 
-    expect(upstreamCall().init.body).toBe('{"code":"WC-2026"}');
+    const forwarded = new TextDecoder().decode(
+      upstreamCall().init.body as ArrayBuffer,
+    );
+    expect(forwarded).toBe('{"code":"WC-2026"}');
     expect(upstreamCall().init.method).toBe("POST");
+  });
+
+  it("forwards a binary body byte-for-byte, unchanged by text decoding (D-058)", async () => {
+    const bytes = new Uint8Array([0xff, 0xd8, 0xff, 0x00, 0x01, 0x02]);
+    const binaryRequest = new NextRequest("http://web.test/gateway/uploads", {
+      method: "POST",
+      headers: { "content-type": "image/jpeg" },
+      body: bytes,
+    });
+
+    await POST(binaryRequest, params(["uploads"]));
+
+    const forwarded = new Uint8Array(upstreamCall().init.body as ArrayBuffer);
+    expect(Array.from(forwarded)).toEqual(Array.from(bytes));
   });
 
   it("returns the upstream status and body UNCHANGED, so D-021's error shape survives", async () => {
@@ -240,8 +247,6 @@ describe("gateway proxy — negative cases required by T-027", () => {
   });
 
   it("does NOT forward the browser's cookies upstream", async () => {
-    // The whole design rests on apps/api trusting ONE minted token and nothing else. If a
-    // cookie reached it, a future change could start honouring it.
     await GET(
       request("/gateway/conversations", {
         headers: { cookie: "authjs.session-token=secret-value; other=1" },
@@ -256,7 +261,6 @@ describe("gateway proxy — negative cases required by T-027", () => {
   });
 
   it("does NOT let the caller supply their own Authorization header", async () => {
-    // Otherwise a browser could present a self-made token instead of the minted one.
     await GET(
       request("/gateway/conversations", {
         headers: { authorization: "Bearer forged-token" },
@@ -304,7 +308,6 @@ describe("gateway proxy — negative cases required by T-027", () => {
       params(["conversations"]),
     );
 
-    // 500 from upstream is distinct from 502 "could not reach upstream".
     expect(response.status).toBe(500);
   });
 
@@ -324,7 +327,6 @@ describe("gateway proxy — negative cases required by T-027", () => {
   });
 
   it("never relays a Set-Cookie from upstream into the browser", async () => {
-    // apps/api sets none (D-039), but relaying one would let it collide with Auth.js's.
     fetchMock.mockResolvedValue(
       new Response("{}", {
         status: 200,
@@ -341,6 +343,29 @@ describe("gateway proxy — negative cases required by T-027", () => {
     );
 
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("strips content-encoding and content-length, which describe the upstream bytes", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ error: { code: "NOT_A_MEMBER" } }), {
+        status: 403,
+        headers: {
+          "content-type": "application/json",
+          "content-encoding": "gzip",
+          "content-length": "1234",
+        },
+      }),
+    );
+
+    const response = await GET(
+      request("/gateway/conversations"),
+      params(["conversations"]),
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("content-encoding")).toBeNull();
+    expect(response.headers.get("content-length")).toBeNull();
+    expect(response.headers.get("content-type")).toBe("application/json");
   });
 
   it("mints a token per call rather than reusing one", async () => {

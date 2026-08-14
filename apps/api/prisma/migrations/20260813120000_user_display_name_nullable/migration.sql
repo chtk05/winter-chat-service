@@ -1,0 +1,25 @@
+-- Repairs a drift between `prisma/schema.prisma` and the applied database.
+--
+-- `schema.prisma` declares `User.displayName String?` — nullable, and D-050's comment on it
+-- records that it is "nullable and currently never populated": the service token carries no
+-- profile, and nothing renders an admin's name (T-002 de-identified the sign-out control,
+-- D-045 has no roles).
+--
+-- The applied migration 20260813000000_init disagrees. It was generated with
+-- `prisma migrate diff --from-empty` BEFORE the field was made nullable, and created
+-- `"displayName" TEXT NOT NULL`. No migration was generated afterwards, so the database
+-- kept the older shape.
+--
+-- The consequence was not cosmetic. `createPrismaMemberStore.grantMembership` upserts with
+-- `create: { lineUserId, member: true, joinedAt }` and no `displayName`, so every first join
+-- failed at the database:
+--
+--     P2011  Null constraint violation  on prisma.user.upsert()
+--     POST /api/auth/join → 500
+--
+-- F-001's join gate — the product's entry point — was broken against a real database while
+-- all 275 `apps/api` unit tests passed, because `MemberStore` is a double in every one of
+-- them. Found by T-021 (phase 3, D-055) on 2026-08-13.
+--
+-- The schema is the recorded intent and the database is what drifted, so the database moves.
+ALTER TABLE "users" ALTER COLUMN "displayName" DROP NOT NULL;

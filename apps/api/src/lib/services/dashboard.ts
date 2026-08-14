@@ -7,13 +7,6 @@ import {
 } from "@/lib/time/calendar";
 import type { MessageDirection } from "@/lib/services/chat-types";
 
-/**
- * T-015: the stats overview. D-020 fixes the metric list — only what F-003 specifies, and
- * nothing the design showed beyond it. D-014 fixes calendar days as Asia/Bangkok.
- *
- * Empty data yields ZEROS, never placeholders or nulls (§3.5, and T-019 asserts it on the
- * rendering side too).
- */
 export const DASHBOARD_SERIES_DAYS = 7;
 
 export type DashboardRange = "today" | "7d";
@@ -22,7 +15,6 @@ export function isDashboardRange(value: unknown): value is DashboardRange {
   return value === "today" || value === "7d";
 }
 
-/** One message reduced to what the summary needs; the store does the narrowing. */
 export interface DashboardMessageRow {
   direction: MessageDirection;
   createdAt: Date;
@@ -38,11 +30,8 @@ export interface DashboardActivityRow {
 
 export interface DashboardStore {
   countContacts(): Promise<number>;
-  /** D-027: contacts holding at least one unread inbound message, not messages. */
   countUnreadContacts(): Promise<number>;
-  /** Contacts with a message in EITHER direction since the given instant (D-014). */
   countActiveContactsSince(since: Date): Promise<number>;
-  /** Every message at or after `since`, narrowed to direction and timestamp. */
   listMessagesSince(since: Date): Promise<DashboardMessageRow[]>;
   listRecentActivity(take: number): Promise<DashboardActivityRow[]>;
 }
@@ -75,9 +64,6 @@ export async function summarizeDashboard(
   const now = clock.now();
   const startOfToday = startOfZonedDay(now);
 
-  // The series is ALWAYS seven days, whatever the range: `openapi.yaml` describes it as
-  // "7 calendar days (D-020)" unconditionally, and the design's chart has seven bars.
-  // The range selects which window `messages` totals, not how long the chart is.
   const dayKeys = recentDayKeys(now, DASHBOARD_SERIES_DAYS);
   const startOfSeries = startOfZonedDay(
     new Date(
@@ -97,8 +83,6 @@ export async function summarizeDashboard(
 
   const series = buildSeries(dayKeys, seriesMessages);
 
-  // `messages` follows the requested range; the seven-day read above already contains
-  // today's messages, so there is no second query for the `today` case.
   const counted =
     range === "today"
       ? seriesMessages.filter((message) => message.createdAt >= startOfToday)
@@ -130,8 +114,6 @@ function buildSeries(
   dayKeys: readonly string[],
   messages: readonly DashboardMessageRow[],
 ): DashboardSummaryDto["series"] {
-  // Seeded with every day at zero FIRST, so a day with no traffic still appears. Building
-  // from the messages instead would silently drop quiet days and shorten the chart.
   const byDay = new Map(
     dayKeys.map((date) => [date, { date, inbound: 0, outbound: 0 }]),
   );
@@ -139,8 +121,6 @@ function buildSeries(
   for (const message of messages) {
     const bucket = byDay.get(zonedDayKey(message.createdAt));
 
-    // A message outside the seven-day window is ignored rather than folded into an edge
-    // day, which would misreport the boundary the D-014 tests are about.
     if (bucket) {
       bucket[message.direction] += 1;
     }

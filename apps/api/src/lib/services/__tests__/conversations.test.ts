@@ -105,7 +105,6 @@ describe("listConversations — positive cases (T-013, D-048)", () => {
       snippet: "hello",
       contact: { lineUserId: "Ua", displayName: "Contact a" },
     });
-    // A conversation with no messages carries no snippet rather than an empty string.
     expect(result.list.items[1]).not.toHaveProperty("snippet");
   });
 
@@ -122,7 +121,6 @@ describe("listConversations — positive cases (T-013, D-048)", () => {
   });
 
   it("passes the status filter to BOTH the list and the totals", async () => {
-    // If a filter reached only one of them the footer would contradict the rows.
     const { store, calls } = createStore();
 
     await listConversations({ status: "Pending" }, store);
@@ -149,8 +147,6 @@ describe("listConversations — positive cases (T-013, D-048)", () => {
   });
 
   it("returns ONE row per contact — D-048's negative case, asserted positively", async () => {
-    // The store is contracted to return the latest conversation per contact. This asserts
-    // the service does not then fan a contact back out into several rows.
     const { store } = createStore({
       rows: [{ conversation: conversation("newer"), snippet: "the newer one" }],
       totals: { matching: 1, all: 1, open: 1 },
@@ -229,7 +225,6 @@ describe("listConversations — negative cases required by T-013", () => {
     ["a lowercase status", "open"],
     ["a numeric status", "1"],
   ])("rejects %s rather than ignoring the filter", async (_label, status) => {
-    // Ignoring it would silently answer the All filter, showing more than was asked for.
     const { store, calls } = createStore();
 
     await expect(listConversations({ status }, store)).resolves.toEqual({

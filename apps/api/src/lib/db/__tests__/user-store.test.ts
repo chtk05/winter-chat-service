@@ -76,8 +76,6 @@ describe("createPrismaMemberStore (D-046, D-050)", () => {
   });
 
   it("does not overwrite `joinedAt` when the user is already a member", async () => {
-    // A repeat join must not rewrite when they actually joined. An absent key tells
-    // Prisma to leave the column alone.
     const delegate = createDelegate({ member: true });
     const later = new Date("2026-09-01T00:00:00.000Z");
 
@@ -90,7 +88,6 @@ describe("createPrismaMemberStore (D-046, D-050)", () => {
   });
 
   it("always ends at `member: true`, whichever branch of the upsert runs", async () => {
-    // The read is observational only — it must not be able to withhold membership.
     for (const existing of [null, { member: false }, { member: true }]) {
       const delegate = createDelegate(existing);
       await createPrismaMemberStore(delegate, () => NOW).grantMembership(

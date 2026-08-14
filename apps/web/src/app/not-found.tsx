@@ -2,14 +2,6 @@ import Link from "next/link";
 
 import { BrandMark } from "@/components/shell/brand-mark";
 
-/**
- * F-004 / design conflict C-8: the 404 page is adopted from the design.
- *
- * The design prints "error PAGE_NOT_FOUND · ref 9F13-C". The code is real and
- * kept; the ref is design fixture data (§3.5). A `ref` is minted by the server
- * for an actual API failure (D-021) — a statically rendered 404 has no server
- * response behind it, so no reference is fabricated here.
- */
 export default function NotFound() {
   return (
     <div className="bg-surface flex min-h-full flex-1 flex-col">

@@ -1,16 +1,3 @@
-/**
- * The design's "Access error" card, kept as visual treatment per D-017.
- *
- * Removed against the design, all per D-017:
- *  - "expired, already used, or not linked to this LINE account"
- *  - "Codes are single-use and last 7 days"
- *  - the "Signed in as Aom M. on LINE" account block
- *  - the "Message an admin" button — F-001 records no such action, so shipping
- *    it would mean inventing a feature (§3.2)
- *
- * The reference line is rendered from the real D-021 error body, never from the
- * design's fixture ("error INVITE_INVALID · ref 4471-A").
- */
 export function AccessErrorCard({
   code,
   message,

@@ -7,7 +7,6 @@ import {
   type DashboardStore,
 } from "@/lib/services/dashboard";
 
-/** 16:00 UTC on the 13th = 23:00 Bangkok on the 13th. */
 const NOW = new Date("2026-08-13T16:00:00.000Z");
 
 interface StoreState {
@@ -72,7 +71,6 @@ describe("summarizeDashboard — positive cases (T-015, D-014, D-020)", () => {
         message("2026-08-13T09:00:00.000Z", "inbound"),
         message("2026-08-13T10:00:00.000Z", "inbound"),
         message("2026-08-13T11:00:00.000Z", "outbound"),
-        // Yesterday in Bangkok — must not be counted in `today`.
         message("2026-08-12T05:00:00.000Z", "inbound"),
       ],
     });
@@ -97,8 +95,6 @@ describe("summarizeDashboard — positive cases (T-015, D-014, D-020)", () => {
   });
 
   it("always returns exactly seven days in the series, whatever the range", async () => {
-    // openapi.yaml describes the series as "7 calendar days" unconditionally, and the
-    // design's chart has seven bars.
     for (const range of ["today", "7d"] as const) {
       const { store } = createStore();
       const summary = await summarizeDashboard(range, store, fixedClock(NOW));
@@ -193,7 +189,6 @@ describe("summarizeDashboard — negative cases required by T-015", () => {
       expect(day.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
 
-    // Nothing is null or undefined anywhere in the payload.
     expect(JSON.stringify(summary)).not.toContain("null");
   });
 
@@ -224,7 +219,6 @@ describe("summarizeDashboard — negative cases required by T-015", () => {
   });
 
   it("puts a message EXACTLY at Bangkok midnight on the new day (D-014)", async () => {
-    // 17:00:00 UTC on the 12th is 00:00:00 on the 13th in Bangkok.
     const { store } = createStore({
       messages: [message("2026-08-12T17:00:00.000Z", "inbound")],
     });
@@ -245,9 +239,7 @@ describe("summarizeDashboard — negative cases required by T-015", () => {
 
     const summary = await summarizeDashboard("today", store, fixedClock(NOW));
 
-    // Yesterday in Bangkok, so it is not in today's total...
     expect(summary.messages.inbound).toBe(0);
-    // ...but it is on the 12th's bar.
     expect(summary.series[5]).toMatchObject({ date: "2026-08-12", inbound: 1 });
   });
 
@@ -266,7 +258,6 @@ describe("summarizeDashboard — negative cases required by T-015", () => {
       inbound: 0,
       outbound: 0,
     });
-    // The stray message is dropped from the series but the in-window one is not.
     expect(summary.series.at(-1)?.inbound).toBe(1);
   });
 

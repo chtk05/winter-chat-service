@@ -120,10 +120,16 @@ model Message {
 
   direction MessageDirection
 
-  /// D-010: the LINE message type. `text` is the only supported type; anything else is
-  /// stored as a typed placeholder with `text` null and rendered as unsupported.
+  /// D-010: the LINE message type. `text` and `image` (D-058) are the only supported
+  /// types; anything else is stored as a typed placeholder with `text`/`mediaUrl` null
+  /// and rendered as unsupported.
   messageType String
   text        String?
+
+  /// D-058: a Supabase Storage public URL. Set only for `messageType: "image"` — an
+  /// inbound image re-hosted after fetching it via LINE's Content API, or an outbound
+  /// image uploaded before being handed to LINE as `originalContentUrl`.
+  mediaUrl String?
 
   /// D-013: outbound only. Null on inbound messages, which have no delivery lifecycle.
   deliveryStatus DeliveryStatus?

@@ -1,7 +1,3 @@
-/**
- * The design's 24px rounded square wordmark, used in the top bar, the sign-in
- * marketing panel, and the 404 header.
- */
 export function BrandMark({ showName = true }: { showName?: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-2.5">

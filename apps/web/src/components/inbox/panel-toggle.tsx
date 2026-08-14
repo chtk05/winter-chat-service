@@ -1,6 +1,5 @@
 "use client";
 
-/** The design's 34×18 switch with a 14px knob, used for the List and Details toggles. */
 export function PanelToggle({
   label,
   pressed,

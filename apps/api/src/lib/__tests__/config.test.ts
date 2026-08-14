@@ -14,7 +14,6 @@ describe("readAuthConfig", () => {
   });
 
   it("ignores WEB_ORIGIN, which D-040 retired along with cors.ts", () => {
-    // A stale value left in a deployment's environment must not resurrect anything.
     const config = readAuthConfig({
       ...VALID,
       WEB_ORIGIN: "http://localhost:3000",
@@ -45,8 +44,6 @@ describe("readAuthConfig — negative cases", () => {
   });
 
   it("throws when SESSION_SECRET equals ACCESS_CODE (D-008 requires distinct)", () => {
-    // If they matched, anyone holding the join code could mint their own service tokens —
-    // including one claiming `member: true`.
     const shared = "the-same-value-used-for-both-of-them!!";
 
     expect(() =>

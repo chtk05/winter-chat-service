@@ -1,17 +1,17 @@
 import nextJest from "next/jest.js";
 
-// D-004: Jest via Next.js's official setup path, so the SWC transform handles
-// TypeScript and JSX rather than a hand-rolled babel config.
 const createJestConfig = nextJest({ dir: "./" });
 
-/** @type {import('jest').Config} */
-const config = {
-  testEnvironment: "jsdom",
+const NODE_ENV_TESTS = [
+  "<rootDir>/src/app/gateway/__tests__/gateway-route\\.test\\.ts",
+  "<rootDir>/src/lib/auth/__tests__/service-token\\.test\\.ts",
+];
+
+const shared = {
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
   },
-  testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",
     "!src/**/*.d.ts",
@@ -19,4 +19,27 @@ const config = {
   ],
 };
 
-export default createJestConfig(config);
+const jsdomProject = createJestConfig({
+  ...shared,
+  displayName: "jsdom",
+  testEnvironment: "jsdom",
+  testPathIgnorePatterns: [
+    "<rootDir>/.next/",
+    "<rootDir>/node_modules/",
+    ...NODE_ENV_TESTS,
+  ],
+});
+
+const nodeProject = createJestConfig({
+  ...shared,
+  displayName: "node",
+  testEnvironment: "node",
+  testMatch: NODE_ENV_TESTS.map((pattern) => pattern.replace(/\\\./g, ".")),
+  testPathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
+});
+
+const config = async () => ({
+  projects: await Promise.all([jsdomProject(), nodeProject()]),
+});
+
+export default config;

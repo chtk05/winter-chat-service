@@ -9,14 +9,6 @@ import type { StatusFilter } from "@/components/inbox/filter-pills";
 import { listConversations, markRead } from "@/lib/api/client";
 import type { Conversation, ConversationListResponse } from "@/lib/api/types";
 
-/**
- * F-002 inbox. The design's three panes: conversation list, thread, details.
- *
- * The details panel is built (T-020), unblocked by D-052 after sitting on OQ-21
- * since 2026-08-12. It shows only fields `openapi.yaml` already defines. D-019 is
- * not reversed — assigned-to, tags and internal notes stay out of scope, and
- * OQ-35 stays open.
- */
 export default function InboxPage() {
   const [data, setData] = useState<ConversationListResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,10 +16,8 @@ export default function InboxPage() {
   const [filter, setFilter] = useState<StatusFilter>("All");
   const [active, setActive] = useState<Conversation | null>(null);
   const [listVisible, setListVisible] = useState(true);
-  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [detailsVisible, setDetailsVisible] = useState(true);
 
-  // `loading` is raised by the handlers below rather than here: setting state
-  // synchronously inside an effect cascades renders (React `set-state-in-effect`).
   useEffect(() => {
     let cancelled = false;
 
@@ -50,7 +40,6 @@ export default function InboxPage() {
     };
   }, [filter, search]);
 
-  /** D-007: opening a thread marks all of that contact's inbound messages read. */
   const handleSelect = useCallback(
     (conversationId: string) => {
       const selected = data?.items.find((item) => item.id === conversationId);
@@ -74,10 +63,7 @@ export default function InboxPage() {
                 : current,
             );
           })
-          .catch(() => {
-            // The badge stays until the server confirms — read state is
-            // workspace-wide (D-009), so a failed call must not fake it.
-          });
+          .catch(() => {});
       }
     },
     [data],
@@ -97,28 +83,33 @@ export default function InboxPage() {
     );
   }, []);
 
+  const mobilePane: "list" | "thread" | "details" = detailsVisible
+    ? "details"
+    : active
+      ? "thread"
+      : "list";
+
   return (
     <div className="bg-surface flex min-h-0 flex-1">
-      {listVisible && (
-        <ConversationList
-          data={data}
-          search={search}
-          onSearchChange={(next) => {
-            setLoading(true);
-            setSearch(next);
-          }}
-          filter={filter}
-          onFilterChange={(next) => {
-            setLoading(true);
-            setFilter(next);
-          }}
-          activeId={active?.id ?? null}
-          onSelect={handleSelect}
-          loading={loading}
-        />
-      )}
+      <ConversationList
+        data={data}
+        search={search}
+        onSearchChange={(next) => {
+          setLoading(true);
+          setSearch(next);
+        }}
+        filter={filter}
+        onFilterChange={(next) => {
+          setLoading(true);
+          setFilter(next);
+        }}
+        activeId={active?.id ?? null}
+        onSelect={handleSelect}
+        loading={loading}
+        listVisible={listVisible}
+        mobileVisible={mobilePane === "list"}
+      />
 
-      {/* Keyed so switching threads remounts with empty message state. */}
       <ThreadPanel
         key={active?.id ?? "none"}
         conversation={active}
@@ -127,9 +118,16 @@ export default function InboxPage() {
         onToggleList={() => setListVisible((value) => !value)}
         detailsVisible={detailsVisible}
         onToggleDetails={() => setDetailsVisible((value) => !value)}
+        mobileVisible={mobilePane === "thread"}
+        onBackToList={() => setActive(null)}
       />
 
-      {detailsVisible && <DetailsPanel conversation={active} />}
+      <DetailsPanel
+        conversation={active}
+        detailsVisible={detailsVisible}
+        mobileVisible={mobilePane === "details"}
+        onBack={() => setDetailsVisible(false)}
+      />
     </div>
   );
 }

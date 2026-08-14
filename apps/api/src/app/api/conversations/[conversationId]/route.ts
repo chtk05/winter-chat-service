@@ -8,7 +8,6 @@ import {
   type ConversationResult,
 } from "@/lib/services/conversations";
 
-/** T-013: `GET` the thread header's conversation, `PATCH` its status (D-019). */
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ conversationId: string }> },
@@ -57,7 +56,6 @@ async function readJsonBody(
     const parsed: unknown = await request.json();
     return typeof parsed === "object" && parsed !== null ? parsed : null;
   } catch {
-    // A malformed body carries no status, which the service already maps to 400.
     return null;
   }
 }

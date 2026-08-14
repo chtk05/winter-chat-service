@@ -1,5 +1,7 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
+
 import { MessageBubble } from "./message-bubble";
 import { PanelToggle } from "./panel-toggle";
 import { initialsOf, truncateLineUserId } from "@/lib/format";
@@ -8,20 +10,6 @@ import type {
   ConversationStatus,
   Message,
 } from "@/lib/api/types";
-
-/**
- * T-007: the design's thread pane — header with the D-019 status select and the
- * List/Details toggles, message bubbles, and the "Load full history" control.
- *
- * D-026 fixes paging at 30 initial / 50 per page. The control is hidden when the
- * server reports no more history, and is disabled while a page is in flight so it
- * cannot fire twice.
- *
- * The header's meta line is `channel · truncated LINE user id`. That is not the
- * unresolved "session id" of OQ-21 — `openapi.yaml` states outright that
- * `Contact.lineUserId` is "shown truncated in the details panel (U8f2c…4471)",
- * so the value is recorded. OQ-21 concerns what the *details panel* contains.
- */
 
 const STATUSES: ConversationStatus[] = ["Open", "Pending", "Closed"];
 
@@ -39,6 +27,8 @@ export function ThreadView({
   detailsVisible,
   onToggleDetails,
   composer,
+  mobileVisible = true,
+  onBackToList,
 }: {
   conversation: Conversation | null;
   messages: Message[];
@@ -53,10 +43,16 @@ export function ThreadView({
   detailsVisible: boolean;
   onToggleDetails: () => void;
   composer?: React.ReactNode;
+  mobileVisible?: boolean;
+  onBackToList?: () => void;
 }) {
+  const mobileVisibilityClass = mobileVisible ? "flex" : "hidden";
+
   if (!conversation) {
     return (
-      <div className="bg-bg flex min-h-0 min-w-[360px] flex-1 basis-[420px] items-center justify-center">
+      <div
+        className={`bg-bg min-h-0 flex-1 basis-[420px] items-center justify-center lg:flex lg:min-w-[360px] ${mobileVisibilityClass}`}
+      >
         <p className="text-text-secondary text-[13px]">
           Select a conversation to open its thread.
         </p>
@@ -67,14 +63,35 @@ export function ThreadView({
   const { contact, status } = conversation;
 
   return (
-    <div className="flex min-h-0 min-w-[360px] flex-1 basis-[420px] flex-col">
+    <div
+      className={`min-h-0 flex-1 basis-[420px] flex-col lg:flex lg:min-w-[360px] ${mobileVisibilityClass}`}
+    >
       <div className="border-border-default flex min-h-[60px] flex-none items-center justify-between gap-4 border-b px-5 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
+          {onBackToList && (
+            <button
+              type="button"
+              onClick={onBackToList}
+              aria-label="Back to conversations"
+              title="Back to conversations"
+              className="border-border-default hover:bg-border-subtle -ml-1 flex h-8 w-8 flex-none items-center justify-center rounded-full border lg:hidden"
+            >
+              <ArrowLeft aria-hidden className="h-4 w-4" />
+            </button>
+          )}
           <div
             aria-hidden
-            className="bg-primary flex h-8 w-8 flex-none items-center justify-center rounded-full text-[12px] font-medium text-[#f8fafc]"
+            className="bg-primary flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full text-[12px] font-medium text-[#f8fafc]"
           >
-            {initialsOf(contact.displayName)}
+            {contact.avatarUrl ? (
+              <img
+                src={contact.avatarUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              initialsOf(contact.displayName)
+            )}
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-[14px] font-semibold">
@@ -105,21 +122,27 @@ export function ThreadView({
             ))}
           </select>
 
-          <PanelToggle
-            label="List"
-            pressed={listVisible}
-            onToggle={onToggleList}
-          />
-          <PanelToggle
-            label="Details"
-            pressed={detailsVisible}
-            onToggle={onToggleDetails}
-          />
+          <div className="max-lg:hidden">
+            <PanelToggle
+              label="List"
+              pressed={listVisible}
+              onToggle={onToggleList}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={onToggleDetails}
+            aria-expanded={detailsVisible}
+            aria-label={detailsVisible ? "Hide details" : "Show details"}
+            title={detailsVisible ? "Hide details" : "Show details"}
+            className="rounded-control border-border-default hover:bg-border-subtle flex h-8 w-8 flex-none items-center justify-center border text-[13px] font-medium"
+          >
+            {detailsVisible ? "»" : "«"}
+          </button>
         </div>
       </div>
 
       <div className="bg-bg flex flex-1 flex-col gap-3.5 overflow-y-auto px-6 py-5">
-        {/* D-026: only offered when the server says there is more history. */}
         {hasMore && (
           <div className="self-center">
             <button
@@ -140,7 +163,6 @@ export function ThreadView({
         )}
 
         {messages.length === 0 && !loadingMore ? (
-          // Negative case (T-007): an empty thread renders an empty state, not a spinner.
           <p className="text-text-secondary m-auto text-[13px]">
             No messages in this conversation yet.
           </p>

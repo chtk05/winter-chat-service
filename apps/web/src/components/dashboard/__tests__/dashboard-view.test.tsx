@@ -4,8 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { DashboardView } from "../dashboard-view";
 import type { DashboardSummary } from "@/lib/api/types";
 
-/** T-019 verification, against a test double of `GET /dashboard/summary`. */
-
 function summary(overrides: Partial<DashboardSummary> = {}): DashboardSummary {
   return {
     range: "today",
@@ -95,7 +93,6 @@ describe("stat cards", () => {
     ).toHaveTextContent("11");
   });
 
-  /** D-027: the unit is contacts, and the label has to say so. */
   it("labels the unread figure as contacts, not messages", () => {
     renderDashboard();
 
@@ -175,8 +172,6 @@ describe("range toggle", () => {
   });
 });
 
-/* ---------------------------------------------------- negative cases --- */
-
 describe("empty data", () => {
   it("renders zeros, not placeholders or mock values", () => {
     renderDashboard({ summary: EMPTY });
@@ -237,7 +232,6 @@ it("surfaces a failed load", () => {
   );
 });
 
-/** D-020 + §3.5: nothing the decision excluded, and no design fixture value. */
 describe("excluded by D-020", () => {
   it("renders none of the design's out-of-scope metrics", () => {
     const { container } = render(
@@ -273,7 +267,6 @@ describe("excluded by D-020", () => {
       .getAllByTestId("chart-bar")
       .map((bar) => bar.getAttribute("data-total"));
 
-    // The design's BARS fixture is 11,8,14,6,5,12,16,13,10,15,21,9,14,18.
     expect(totals).not.toContain("21");
     expect(container.textContent).not.toContain("4m 12s");
   });

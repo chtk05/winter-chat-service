@@ -8,7 +8,6 @@ import {
 
 const CONVERSATION_ID = "conv-1";
 
-/** `count` messages, newest first, one minute apart. */
 function messages(count: number): MessageRow[] {
   return Array.from({ length: count }, (_, index) => ({
     id: `m-${count - index}`,
@@ -106,9 +105,7 @@ describe("listThreadMessages — positive cases (T-014, D-026)", () => {
     const firstIds = first.page.items.map((item) => item.id);
     const secondIds = second.page.items.map((item) => item.id);
 
-    // No overlap.
     expect(firstIds.filter((id) => secondIds.includes(id))).toEqual([]);
-    // No gap: walking backwards, the two pages are the 8 newest in order.
     expect([...secondIds, ...firstIds]).toEqual([
       "m-3",
       "m-4",
@@ -203,7 +200,6 @@ describe("listThreadMessages — negative cases required by T-014", () => {
       ),
     ).resolves.toEqual({ outcome: "invalid-limit" });
 
-    // Proving it is a rejection and not a clamp: nothing was read.
     expect(store.calls).toEqual([]);
   });
 
@@ -225,7 +221,6 @@ describe("listThreadMessages — negative cases required by T-014", () => {
   });
 
   it("validates the limit BEFORE checking the conversation exists", async () => {
-    // Otherwise a bad limit on an unknown id would answer 404, hiding the real fault.
     const store = createStore(messages(10), { exists: false });
 
     await expect(

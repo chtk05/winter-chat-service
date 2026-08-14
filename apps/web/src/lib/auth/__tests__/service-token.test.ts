@@ -1,11 +1,3 @@
-/**
- * D-040 records the proxy and its token minting as PHASE 1 work despite living in
- * `apps/web` — a route handler tested with doubles, rendering nothing. It therefore runs
- * in the node environment, not this app's default jsdom: `jose` needs `TextEncoder`, and
- * D-022 forbids a backend task from rendering a component anyway.
- *
- * @jest-environment node
- */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -105,7 +97,6 @@ describe("mintServiceToken — D-041, D-049, D-050", () => {
       { currentDate: NOW },
     );
 
-    // Strictly false, not absent — apps/api refuses a token with no `member` claim.
     expect(payload.member).toBe(false);
   });
 
@@ -152,8 +143,6 @@ describe("readSessionSecret — fails loudly at the boundary", () => {
     ["empty", ""],
     ["shorter than HS256's 256-bit minimum", "too-short"],
   ])("throws when SESSION_SECRET is %s", (_label, value) => {
-    // Minting with `undefined` would produce a token apps/api silently rejects, turning a
-    // config error into an unexplained 401 on every call.
     expect(() => readSessionSecret({ SESSION_SECRET: value })).toThrow(
       /SESSION_SECRET/,
     );
@@ -168,8 +157,6 @@ describe("readApiOrigin — D-025, D-040", () => {
   });
 
   it("is NOT a NEXT_PUBLIC_ variable — the browser must never learn the API origin", () => {
-    // D-040: the browser never contacts apps/api. A NEXT_PUBLIC_ name would ship it to the
-    // client bundle and invite exactly the direct call the design removed.
     const source = readFileSync(join(__dirname, "../service-token.ts"), "utf8");
 
     expect(source).not.toContain("NEXT_PUBLIC_");
