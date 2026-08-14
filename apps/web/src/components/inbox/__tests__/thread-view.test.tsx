@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ThreadView } from "../thread-view";
@@ -175,7 +175,7 @@ describe("ThreadView messages", () => {
     expect(screen.getByText("sent to LINE")).toBeInTheDocument();
   });
 
-  it.each(["sticker", "location", "file"])(
+  it.each(["location", "file"])(
     "renders a %s placeholder with its LINE type",
     (messageType) => {
       renderThread({
@@ -224,6 +224,66 @@ describe("ThreadView messages", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("renders a sticker's mediaUrl as an img, not the unsupported placeholder", () => {
+    const { view } = renderThread({
+      messages: [
+        message({
+          messageType: "sticker",
+          text: null,
+          mediaUrl:
+            "https://stickershop.line-scdn.net/stickershop/v1/sticker/52002734/android/sticker.png",
+        }),
+      ],
+    });
+
+    expect(
+      screen.queryByTestId("unsupported-placeholder"),
+    ).not.toBeInTheDocument();
+    const img = view.container.querySelector(
+      '[data-testid="message-bubble"] img',
+    );
+    expect(img).toHaveAttribute(
+      "src",
+      "https://stickershop.line-scdn.net/stickershop/v1/sticker/52002734/android/sticker.png",
+    );
+  });
+
+  it("renders 'Image unavailable' for a sticker message with no mediaUrl", () => {
+    renderThread({
+      messages: [
+        message({ messageType: "sticker", text: null, mediaUrl: null }),
+      ],
+    });
+
+    expect(screen.getByTestId("image-unavailable")).toHaveTextContent(
+      "Image unavailable",
+    );
+  });
+
+  it("falls back to 'Image unavailable' when a sticker's LINE CDN url 404s", () => {
+    const { view } = renderThread({
+      messages: [
+        message({
+          messageType: "sticker",
+          text: null,
+          mediaUrl: "https://stickershop.line-scdn.net/does-not-exist.png",
+        }),
+      ],
+    });
+
+    const img = view.container.querySelector(
+      '[data-testid="message-bubble"] img',
+    );
+    expect(img).toBeInTheDocument();
+
+    fireEvent.error(img!);
+
+    expect(screen.getByTestId("image-unavailable")).toBeInTheDocument();
+    expect(
+      view.container.querySelector('[data-testid="message-bubble"] img'),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders a delivery failure with its reason and a retry control", async () => {
     const onRetryMessage = jest.fn();
     renderThread({
@@ -251,6 +311,21 @@ describe("ThreadView messages", () => {
       screen.getByText("No messages in this conversation yet."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Loading…")).not.toBeInTheDocument();
+  });
+
+  it("renders a loading skeleton, not the empty state, while the thread's first fetch is in flight", () => {
+    renderThread({ messages: [], loadingThread: true });
+
+    expect(screen.getByTestId("thread-skeleton")).toBeInTheDocument();
+    expect(
+      screen.queryByText("No messages in this conversation yet."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders no skeleton once the thread's messages have arrived", () => {
+    renderThread({ loadingThread: false });
+
+    expect(screen.queryByTestId("thread-skeleton")).not.toBeInTheDocument();
   });
 
   it("renders a prompt when no conversation is selected", () => {

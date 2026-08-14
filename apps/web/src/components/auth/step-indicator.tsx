@@ -10,7 +10,7 @@ export function StepIndicator({ step }: { step: 1 | 2 }) {
           }`}
         />
       </div>
-      <p className="text-text-muted font-mono text-[11px] tracking-[0.08em] uppercase">
+      <p className="text-text-muted font-mono text-[13px] tracking-[0.08em] uppercase">
         Step {step} of 2
       </p>
     </div>

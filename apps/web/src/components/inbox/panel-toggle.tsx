@@ -11,7 +11,7 @@ export function PanelToggle({
 }) {
   return (
     <div className="rounded-control border-border-default flex h-8 items-center gap-2 border px-3">
-      <span className="text-text-secondary text-[12px] whitespace-nowrap">
+      <span className="text-text-secondary text-[14px] whitespace-nowrap">
         {label}
       </span>
       <button

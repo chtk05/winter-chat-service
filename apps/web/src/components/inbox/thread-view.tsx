@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 
 import { MessageBubble } from "./message-bubble";
 import { PanelToggle } from "./panel-toggle";
+import { Skeleton } from "@/components/ui/skeleton";
 import { initialsOf, truncateLineUserId } from "@/lib/format";
 import type {
   Conversation,
@@ -17,6 +18,7 @@ export function ThreadView({
   conversation,
   messages,
   hasMore,
+  loadingThread = false,
   loadingMore,
   loadError,
   onLoadMore,
@@ -33,6 +35,10 @@ export function ThreadView({
   conversation: Conversation | null;
   messages: Message[];
   hasMore: boolean;
+  /** True only for the FIRST fetch of a thread — distinct from `loadingMore`
+   * (older-history paging), so a still-loading thread doesn't briefly render
+   * "No messages in this conversation yet." before its real content arrives. */
+  loadingThread?: boolean;
   loadingMore: boolean;
   loadError?: string | null;
   onLoadMore: () => void;
@@ -53,7 +59,7 @@ export function ThreadView({
       <div
         className={`bg-bg min-h-0 flex-1 basis-[420px] items-center justify-center lg:flex lg:min-w-[360px] ${mobileVisibilityClass}`}
       >
-        <p className="text-text-secondary text-[13px]">
+        <p className="text-text-secondary text-[15px]">
           Select a conversation to open its thread.
         </p>
       </div>
@@ -81,7 +87,7 @@ export function ThreadView({
           )}
           <div
             aria-hidden
-            className="bg-primary flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full text-[12px] font-medium text-[#f8fafc]"
+            className="bg-primary flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-full text-[14px] font-medium text-[#f8fafc]"
           >
             {contact.avatarUrl ? (
               <img
@@ -94,10 +100,10 @@ export function ThreadView({
             )}
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-[14px] font-semibold">
+            <h2 className="truncate text-[16px] font-semibold">
               {contact.displayName}
             </h2>
-            <div className="text-text-secondary truncate font-mono text-[11px]">
+            <div className="text-text-secondary truncate font-mono text-[13px]">
               {conversation.channel} · {truncateLineUserId(contact.lineUserId)}
             </div>
           </div>
@@ -113,7 +119,7 @@ export function ThreadView({
             onChange={(event) =>
               onStatusChange(event.target.value as ConversationStatus)
             }
-            className="rounded-control border-border-default bg-surface h-8 cursor-pointer border px-2 text-[13px] font-medium outline-none"
+            className="rounded-control border-border-default bg-surface h-8 cursor-pointer border px-2 text-[15px] font-medium outline-none"
           >
             {STATUSES.map((option) => (
               <option key={option} value={option}>
@@ -135,7 +141,7 @@ export function ThreadView({
             aria-expanded={detailsVisible}
             aria-label={detailsVisible ? "Hide details" : "Show details"}
             title={detailsVisible ? "Hide details" : "Show details"}
-            className="rounded-control border-border-default hover:bg-border-subtle flex h-8 w-8 flex-none items-center justify-center border text-[13px] font-medium"
+            className="rounded-control border-border-default hover:bg-border-subtle flex h-8 w-8 flex-none items-center justify-center border text-[15px] font-medium"
           >
             {detailsVisible ? "»" : "«"}
           </button>
@@ -149,7 +155,7 @@ export function ThreadView({
               type="button"
               onClick={onLoadMore}
               disabled={loadingMore}
-              className="rounded-pill border-border-default bg-surface hover:bg-border-subtle border px-3 py-[5px] text-[12px] text-[#475569] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-pill border-border-default bg-surface hover:bg-border-subtle border px-3 py-[5px] text-[14px] text-[#475569] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loadingMore ? "Loading…" : "Load full history"}
             </button>
@@ -157,13 +163,15 @@ export function ThreadView({
         )}
 
         {loadError && (
-          <p role="alert" className="self-center text-[12px] text-[#b91c1c]">
+          <p role="alert" className="self-center text-[14px] text-[#b91c1c]">
             {loadError}
           </p>
         )}
 
-        {messages.length === 0 && !loadingMore ? (
-          <p className="text-text-secondary m-auto text-[13px]">
+        {loadingThread ? (
+          <ThreadSkeleton />
+        ) : messages.length === 0 && !loadingMore ? (
+          <p className="text-text-secondary m-auto text-[15px]">
             No messages in this conversation yet.
           </p>
         ) : (
@@ -179,6 +187,29 @@ export function ThreadView({
       </div>
 
       {composer}
+    </div>
+  );
+}
+
+function ThreadSkeleton() {
+  const bubbles = [
+    { side: "start", width: "w-52" },
+    { side: "end", width: "w-40" },
+    { side: "start", width: "w-64" },
+    { side: "start", width: "w-32" },
+    { side: "end", width: "w-48" },
+  ] as const;
+
+  return (
+    <div aria-hidden data-testid="thread-skeleton" className="contents">
+      {bubbles.map((bubble, index) => (
+        <Skeleton
+          key={index}
+          className={`h-9 ${bubble.width} ${
+            bubble.side === "end" ? "self-end" : "self-start"
+          }`}
+        />
+      ))}
     </div>
   );
 }

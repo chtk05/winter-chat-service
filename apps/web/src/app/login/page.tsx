@@ -21,7 +21,7 @@ function LoginFlow() {
   if (status === "loading") {
     return (
       <div className="bg-surface flex flex-1 items-center justify-center">
-        <p className="text-text-secondary text-[13px]">Loading…</p>
+        <p className="text-text-secondary text-[15px]">Loading…</p>
       </div>
     );
   }

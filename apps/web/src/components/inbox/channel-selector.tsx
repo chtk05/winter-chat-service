@@ -9,7 +9,7 @@ export const CHANNELS = [
 export function ChannelSelector() {
   return (
     <div className="flex flex-wrap items-center gap-2.5">
-      <span className="text-text-secondary text-[12px]">Reply via</span>
+      <span className="text-text-secondary text-[14px]">Reply via</span>
 
       <div
         role="group"
@@ -32,7 +32,7 @@ export function ChannelSelector() {
               cursor: channel.enabled ? "pointer" : "not-allowed",
             }}
             className={[
-              "rounded-chip px-2.5 py-1 text-[12px] font-medium whitespace-nowrap",
+              "rounded-chip px-2.5 py-1 text-[14px] font-medium whitespace-nowrap",
               channel.enabled
                 ? "bg-surface text-text-primary shadow-[0_1px_2px_rgba(9,9,11,0.08)]"
                 : "text-text-secondary bg-transparent",
@@ -43,7 +43,7 @@ export function ChannelSelector() {
         ))}
       </div>
 
-      <span className="text-text-muted text-[11px]">
+      <span className="text-text-muted text-[13px]">
         More channels can be added later
       </span>
     </div>

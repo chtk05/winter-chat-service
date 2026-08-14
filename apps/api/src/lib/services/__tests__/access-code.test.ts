@@ -11,8 +11,9 @@ describe("isAccessCodeCorrect", () => {
     expect(isAccessCodeCorrect("WRONGGG-ACCESS-CODE", EXPECTED)).toBe(false);
   });
 
-  it("rejects a code differing only in case", () => {
-    expect(isAccessCodeCorrect(EXPECTED.toLowerCase(), EXPECTED)).toBe(false);
+  it("accepts a code differing only in case — the join input's uppercase display is cosmetic, not a real transform", () => {
+    expect(isAccessCodeCorrect(EXPECTED.toLowerCase(), EXPECTED)).toBe(true);
+    expect(isAccessCodeCorrect("CoRrEcT-aCcEsS-cOdE", EXPECTED)).toBe(true);
   });
 
   it("rejects a prefix of the correct code", () => {

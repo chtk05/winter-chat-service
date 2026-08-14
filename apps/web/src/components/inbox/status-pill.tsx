@@ -15,8 +15,8 @@ export function StatusPill({
       style={{ background: bg, color: fg }}
       className={
         size === "sm"
-          ? "rounded-pill px-[7px] py-px text-[10px] font-medium"
-          : "rounded-pill px-2.5 py-[3px] text-[11px] font-medium"
+          ? "rounded-pill px-[7px] py-px text-[12px] font-medium"
+          : "rounded-pill px-2.5 py-[3px] text-[13px] font-medium"
       }
     >
       {status}

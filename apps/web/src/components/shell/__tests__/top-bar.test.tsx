@@ -7,6 +7,7 @@ const mockPathname = jest.fn<string, []>();
 
 jest.mock("next/navigation", () => ({
   usePathname: () => mockPathname(),
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
 }));
 
 describe("TopBar", () => {
@@ -21,6 +22,14 @@ describe("TopBar", () => {
     expect(screen.getByText("admin console")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Inbox" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+  });
+
+  it("renders the global search trigger, reachable from every console page", () => {
+    render(<TopBar />);
+
+    expect(
+      screen.getByRole("button", { name: /search conversations/i }),
+    ).toBeInTheDocument();
   });
 
   it("marks Inbox current when the route is /inbox", () => {

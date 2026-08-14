@@ -37,7 +37,7 @@ export function DetailsPanel({
         className={`border-border-default bg-surface w-full flex-col border-l p-5 lg:w-[280px] lg:shrink-0 ${visibilityClass}`}
       >
         {backButton}
-        <p className="text-text-secondary text-[13px]">
+        <p className="text-text-secondary text-[15px]">
           Select a conversation to see its details.
         </p>
       </aside>
@@ -63,10 +63,10 @@ export function DetailsPanel({
           <div aria-hidden className="h-10 w-10 rounded-full bg-[#e2e8f0]" />
         )}
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-semibold">
+          <p className="truncate text-[16px] font-semibold">
             {contact.displayName}
           </p>
-          <p className="text-text-secondary text-[12px]">
+          <p className="text-text-secondary text-[14px]">
             {conversation.channel}
           </p>
         </div>
@@ -104,8 +104,8 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-text-secondary shrink-0 text-[12px]">{label}</dt>
-      <dd className="min-w-0 truncate text-right text-[13px]">{children}</dd>
+      <dt className="text-text-secondary shrink-0 text-[14px]">{label}</dt>
+      <dd className="min-w-0 truncate text-right text-[15px]">{children}</dd>
     </div>
   );
 }

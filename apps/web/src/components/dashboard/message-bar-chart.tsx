@@ -11,8 +11,8 @@ export function MessageBarChart({
   return (
     <div className="rounded-card border-border-default bg-surface border px-5 pt-[18px] pb-5">
       <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-[14px] font-semibold">Messages per day</h2>
-        <div className="text-text-secondary text-[12px]">Last 7 days</div>
+        <h2 className="text-[16px] font-semibold">Messages per day</h2>
+        <div className="text-text-secondary text-[14px]">Last 7 days</div>
       </div>
 
       <div className="mt-5 flex h-40 items-end gap-1.5">
@@ -39,7 +39,7 @@ export function MessageBarChart({
                   className="min-h-0.5 w-full rounded-[4px]"
                 />
               </div>
-              <div className="text-text-muted flex-none font-mono text-[10px]">
+              <div className="text-text-muted flex-none font-mono text-[12px]">
                 {day.date.slice(-2)}
               </div>
             </div>

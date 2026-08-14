@@ -86,6 +86,13 @@ export function listConversations(
   return request<ConversationListResponse>(`/conversations${suffix}`);
 }
 
+/** Fetches one conversation directly by id — used to deep-link into a
+ * conversation (e.g. from global search) without needing it to already be
+ * present in whatever page/filter the inbox list currently has loaded. */
+export function getConversation(conversationId: string): Promise<Conversation> {
+  return request<Conversation>(`/conversations/${conversationId}`);
+}
+
 export function setConversationStatus(
   conversationId: string,
   status: ConversationStatus,

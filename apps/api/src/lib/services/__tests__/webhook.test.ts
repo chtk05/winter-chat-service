@@ -21,6 +21,7 @@ function messageEvent(
     type?: string;
     text?: string;
     replyToken?: string | null;
+    stickerId?: string;
   } = {},
 ): object {
   return {
@@ -36,6 +37,7 @@ function messageEvent(
       ...(overrides.type && overrides.type !== "text"
         ? {}
         : { text: overrides.text ?? "hello" }),
+      ...(overrides.stickerId ? { stickerId: overrides.stickerId } : {}),
     },
   };
 }
@@ -591,6 +593,42 @@ describe("ingestWebhook — negative cases required by T-006 and D-012", () => {
       });
     },
   );
+
+  it("stores a sticker's public LINE CDN image URL as mediaUrl — no Content API call, unlike a photo", async () => {
+    const { store, calls } = createStore();
+    const { line, contentCalls } = createLine(null);
+    const raw = body([
+      messageEvent({ type: "sticker", stickerId: "52002734" }),
+    ]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line),
+    );
+
+    expect(calls.messages[0]).toMatchObject({
+      messageType: "sticker",
+      mediaUrl:
+        "https://stickershop.line-scdn.net/stickershop/v1/sticker/52002734/android/sticker.png",
+    });
+    expect(contentCalls).toHaveLength(0);
+  });
+
+  it("stores a NULL mediaUrl for a sticker event carrying no stickerId", async () => {
+    const { store, calls } = createStore();
+    const { line } = createLine(null);
+    const raw = body([messageEvent({ type: "sticker" })]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line),
+    );
+
+    expect(calls.messages[0]).toMatchObject({
+      messageType: "sticker",
+      mediaUrl: null,
+    });
+  });
 
   it("still stores the message when the profile fetch FAILS, falling back to the LINE user id", async () => {
     const { store, calls } = createStore({ existingContact: false });

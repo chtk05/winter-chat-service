@@ -27,15 +27,15 @@ function ToastList() {
     >
       <div className="min-w-0 flex-1">
         {toast.title && (
-          <Toast.Title className="text-[13px] font-semibold text-[#0f172a] data-[type=error]:text-[#b91c1c] data-[type=success]:text-[#15803d]" />
+          <Toast.Title className="text-[15px] font-semibold text-[#0f172a] data-[type=error]:text-[#b91c1c] data-[type=success]:text-[#15803d]" />
         )}
         {toast.description && (
-          <Toast.Description className="text-text-secondary mt-0.5 text-[12px]" />
+          <Toast.Description className="text-text-secondary mt-0.5 text-[14px]" />
         )}
       </div>
       <Toast.Close
         aria-label="Dismiss"
-        className="text-text-muted hover:text-text-secondary flex-none text-[13px] leading-none"
+        className="text-text-muted hover:text-text-secondary flex-none text-[15px] leading-none"
       >
         ✕
       </Toast.Close>
