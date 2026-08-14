@@ -74,7 +74,6 @@ function joinRequest(token: string | null, body: unknown): NextRequest {
 
 describe("POST /api/auth/join — positive cases", () => {
   it("accepts the correct code from a token whose `member` claim is false (D-046 bootstrap)", async () => {
-    // The whole point: a user who has not joined yet must be able to reach this route.
     const response = await POST(
       joinRequest(await mintToken({ member: false }), { code: ACCESS_CODE }),
     );
@@ -208,8 +207,6 @@ describe("D-039: apps/api sets no cookies anywhere", () => {
   ])(
     "emits no Set-Cookie header on %s",
     async (_label, body, expectedStatus) => {
-      // The design rests on apps/api trusting one token and holding no session of its
-      // own. A stray Set-Cookie would be a silent return to the withdrawn model.
       const response = await POST(joinRequest(await mintToken(), body));
 
       expect(response.status).toBe(expectedStatus);

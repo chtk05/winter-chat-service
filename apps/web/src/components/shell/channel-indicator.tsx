@@ -1,8 +1,3 @@
-/**
- * D-018: "1 of 4 channels live" is a **hardcoded string, not a computed value**.
- * LINE is the only integration; Facebook, WhatsApp and the Web widget are inert
- * chrome, so there is nothing to count and nothing that could change this number.
- */
 export const CHANNELS_LIVE_LABEL = "1 of 4 channels live";
 
 export function ChannelIndicator() {

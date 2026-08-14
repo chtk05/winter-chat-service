@@ -3,16 +3,6 @@
 import { formatMessageMeta } from "@/lib/format";
 import type { Message } from "@/lib/api/types";
 
-/**
- * A message bubble in the design's thread.
- *
- * Geometry is the design's: 16px all round with a 4px tail corner, on the
- * bottom-right for outbound and the top-left for inbound (D-015).
- *
- * D-010: text is the only supported type. A non-text inbound event is stored as
- * a typed placeholder and must be rendered as one, carrying its LINE type, so
- * the history stays complete and honest rather than showing a blank bubble.
- */
 export function MessageBubble({
   message,
   contactName,
@@ -23,7 +13,8 @@ export function MessageBubble({
   onRetry?: (messageId: string) => void;
 }) {
   const outbound = message.direction === "outbound";
-  const isPlaceholder = message.messageType !== "text";
+  const isImage = message.messageType === "image";
+  const isPlaceholder = !isImage && message.messageType !== "text";
   const failed = message.deliveryStatus === "failed";
   const sending = message.deliveryStatus === "sending";
 
@@ -39,7 +30,8 @@ export function MessageBubble({
     >
       <div
         className={[
-          "border px-3.5 py-2.5 text-[14px] leading-[1.5]",
+          "border text-[14px] leading-[1.5]",
+          isImage ? "overflow-hidden" : "px-3.5 py-2.5",
           outbound
             ? "wc-bubble-outbound border-primary bg-primary text-[#f8fafc]"
             : "wc-bubble-inbound border-border-default bg-surface text-text-primary",
@@ -56,7 +48,19 @@ export function MessageBubble({
             : undefined
         }
       >
-        {isPlaceholder ? (
+        {isImage ? (
+          message.mediaUrl ? (
+            <img
+              src={message.mediaUrl}
+              alt=""
+              className="block max-h-[320px] w-full object-cover"
+            />
+          ) : (
+            <span data-testid="image-unavailable" className="px-3.5 py-2.5">
+              Image unavailable
+            </span>
+          )
+        ) : isPlaceholder ? (
           <span data-testid="unsupported-placeholder">
             Unsupported message type: {message.messageType}
           </span>
@@ -70,7 +74,6 @@ export function MessageBubble({
           {formatMessageMeta(outbound ? "You" : contactName, message.createdAt)}
         </span>
 
-        {/* D-006/D-021: the design's "sent to LINE" via-badge. */}
         {message.sentVia && (
           <span className="border-border-default bg-surface rounded-[4px] border px-[5px] py-px font-mono text-[10px] whitespace-nowrap text-[#475569]">
             sent to LINE

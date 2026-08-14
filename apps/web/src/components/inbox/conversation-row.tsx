@@ -4,13 +4,6 @@ import { StatusPill } from "./status-pill";
 import { formatRowTimestamp, initialsOf } from "@/lib/format";
 import type { ConversationSummary } from "@/lib/api/types";
 
-/**
- * A row in the design's conversation list: avatar, name, time, snippet, unread
- * dot, channel tag, status pill.
- *
- * The unread dot is boolean (D-007, D-027) — read state is per-contact, so there
- * is no per-row count to render.
- */
 export function ConversationRow({
   conversation,
   active,
@@ -48,7 +41,6 @@ export function ConversationRow({
         ].join(" ")}
       >
         {contact.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={contact.avatarUrl}
             alt=""

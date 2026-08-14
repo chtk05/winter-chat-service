@@ -7,16 +7,6 @@ import { LogOut } from "lucide-react";
 import { BrandMark } from "./brand-mark";
 import { ChannelIndicator } from "./channel-indicator";
 
-/**
- * F-004: the design's 56px top bar — logo, Inbox/Dashboard segmented control,
- * channel indicator, sign out.
- *
- * The design's sign-out control is an avatar showing the initials "AM". D-002,
- * D-009 and D-017 record that there are no per-user accounts and no per-agent
- * identity, so rendering initials would be inventing a person (§3.2). The
- * control keeps the design's 28px circle and becomes an explicit sign-out.
- */
-
 const TABS = [
   { href: "/inbox", label: "Inbox" },
   { href: "/dashboard", label: "Dashboard" },

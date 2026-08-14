@@ -4,23 +4,16 @@ import { fixedClock } from "@/lib/clock";
 import { verifyServiceToken } from "@/lib/services/session";
 
 const SECRET = "a-test-signing-secret-of-at-least-32-chars";
-/** D-039's two-deployment drift: apps/web signing with a value apps/api no longer holds. */
 const OTHER_DEPLOYMENT_SECRET = "a-different-signing-secret-32-chars-long!";
 const NOW = new Date("2026-08-13T09:00:00.000Z");
 const LINE_USER_ID = "U8f2c000000000000000000000000004471";
 
-/** D-049: 120 seconds. */
 const TTL_SECONDS = 120;
 
 function encode(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-/**
- * Tokens are built with `jose` directly rather than through a helper this app shares with
- * itself. `apps/api` never mints one (D-041) — building it here the way `apps/web` will
- * keeps the test honest about what it is verifying.
- */
 async function mintToken(
   overrides: {
     secret?: string;
@@ -133,8 +126,6 @@ describe("verifyServiceToken — negative cases required by D-041 and T-004", ()
   });
 
   it("rejects a token signed with a DIFFERENT secret than this app holds (D-039 drift)", async () => {
-    // The practical failure mode of the shared secret: SESSION_SECRET rotated in one
-    // Vercel project and not the other. apps/web would happily mint; apps/api must refuse.
     const token = await mintToken({ secret: OTHER_DEPLOYMENT_SECRET });
 
     await expect(
@@ -152,7 +143,6 @@ describe("verifyServiceToken — negative cases required by D-041 and T-004", ()
   });
 
   it("rejects an `alg: none` token", async () => {
-    // Built by hand: jose refuses to sign one.
     const header = Buffer.from(
       JSON.stringify({ alg: "none" }),
       "utf8",
@@ -200,8 +190,6 @@ describe("verifyServiceToken — negative cases required by D-041 and T-004", ()
   });
 
   it("rejects a validly signed token with no `member` claim", async () => {
-    // Refused rather than defaulted to false: one rule for a malformed claim set is
-    // easier to hold than a per-claim defaulting policy.
     const token = await mintToken({ claims: { member: undefined } });
 
     await expect(
@@ -217,8 +205,6 @@ describe("verifyServiceToken — negative cases required by D-041 and T-004", ()
   ])(
     "rejects a `member` claim that is %s rather than a boolean",
     async (_label, member) => {
-      // "false" is a truthy string. Admitting one would turn a serialisation slip in
-      // apps/web into a silent grant of membership.
       const token = await mintToken({ claims: { member } });
 
       await expect(

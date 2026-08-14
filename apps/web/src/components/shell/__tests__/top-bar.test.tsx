@@ -3,11 +3,6 @@ import userEvent from "@testing-library/user-event";
 
 import { TopBar } from "../top-bar";
 
-/**
- * T-002 verification: "segmented control reflects the active route".
- * Phase 2 rule (D-022): no real route handler, no Prisma, no LINE — routing is mocked.
- */
-
 const mockPathname = jest.fn<string, []>();
 
 jest.mock("next/navigation", () => ({
@@ -54,7 +49,6 @@ describe("TopBar", () => {
     );
   });
 
-  // Negative case: an unrelated route must not light up either tab.
   it("marks neither section current on a route outside the console", () => {
     mockPathname.mockReturnValue("/login");
     render(<TopBar />);
@@ -67,7 +61,6 @@ describe("TopBar", () => {
     );
   });
 
-  // Negative case: usePathname returns null during some render passes.
   it("does not crash when the pathname is null", () => {
     mockPathname.mockReturnValue(null as unknown as string);
     expect(() => render(<TopBar />)).not.toThrow();
@@ -87,10 +80,6 @@ describe("TopBar", () => {
     expect(onSignOut).toHaveBeenCalledTimes(1);
   });
 
-  /**
-   * D-017 negative case: no per-agent identity anywhere in the shell. The design
-   * puts "AM" initials in this control; D-002/D-009 create no user to name.
-   */
   it("renders no per-agent identity from the design fixtures", () => {
     const { container } = render(<TopBar />);
     const text = container.textContent ?? "";

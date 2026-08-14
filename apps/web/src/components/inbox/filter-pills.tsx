@@ -2,7 +2,6 @@
 
 import type { ConversationStatus } from "@/lib/api/types";
 
-/** D-019: the All/Open/Pending/Closed filter pills are in scope. */
 export type StatusFilter = "All" | ConversationStatus;
 
 export const STATUS_FILTERS: StatusFilter[] = [

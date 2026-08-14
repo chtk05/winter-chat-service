@@ -1,13 +1,3 @@
-/**
- * Presentation-only formatting for the conversation list and thread.
- *
- * D-014 fixes Asia/Bangkok as the product's calendar zone for *dashboard*
- * metrics. These helpers render timestamps that the server already produced, so
- * they format in the zone passed in — defaulting to Asia/Bangkok for consistency
- * with D-014 rather than to the viewer's local zone, which would make two admins
- * see different day labels for the same message.
- */
-
 export const DISPLAY_TIME_ZONE = "Asia/Bangkok";
 
 function parts(date: Date, timeZone: string) {
@@ -26,10 +16,6 @@ function dayIndex(date: Date, timeZone: string) {
   return Date.UTC(year, month - 1, day) / 86_400_000;
 }
 
-/**
- * The design's row timestamp: clock time today, "Yest." yesterday, "MMM d"
- * beyond that.
- */
 export function formatRowTimestamp(
   iso: string,
   now: Date = new Date(),
@@ -58,7 +44,6 @@ export function formatRowTimestamp(
   }).format(date);
 }
 
-/** The design's bubble meta line: "Ploy · 14:02". */
 export function formatMessageMeta(
   name: string,
   iso: string,
@@ -77,7 +62,6 @@ export function formatMessageMeta(
   return `${name} · ${time}`;
 }
 
-/** Avatar initials, at most two characters. Empty when there is no usable name. */
 export function initialsOf(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "";
@@ -85,7 +69,6 @@ export function initialsOf(name: string): string {
   return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
-/** The design's truncated LINE id in the thread header ("U8f2c…4471"). */
 export function truncateLineUserId(lineUserId: string): string {
   if (lineUserId.length <= 11) return lineUserId;
   return `${lineUserId.slice(0, 5)}…${lineUserId.slice(-4)}`;

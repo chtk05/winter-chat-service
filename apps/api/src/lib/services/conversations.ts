@@ -7,20 +7,10 @@ import {
   type ConversationSummaryDto,
 } from "@/lib/services/chat-types";
 
-/**
- * T-013: the conversation list, detail, status change and read marker.
- *
- * D-048 is the load-bearing decision here: the schema permits a contact to hold several
- * conversations, but the list returns ONE ROW PER CONTACT — that contact's most recent
- * conversation. The query is written that way from the start so it stays correct if a
- * second conversation ever appears; today it is D-047 that keeps there being only one.
- */
 export const CONVERSATION_PAGE_LIMIT = 30;
 
-/** A conversation row plus the snippet the list renders under the contact's name. */
 export interface ConversationListRow {
   conversation: ConversationRow;
-  /** Text of the most recent message; absent when the conversation has none. */
   snippet?: string;
 }
 
@@ -31,10 +21,6 @@ export interface ConversationTotals {
 }
 
 export interface ConversationStore {
-  /**
-   * The latest conversation per contact (D-048), most recent first, filtered by `status`
-   * and `search` when given. Returns at most `take` rows, starting after `cursor`.
-   */
   listLatestPerContact(args: {
     status?: ConversationStatus;
     search?: string;
@@ -42,7 +28,6 @@ export interface ConversationStore {
     take: number;
   }): Promise<ConversationListRow[]>;
 
-  /** D-048: these count CONTACTS, consistently with D-027's unread unit. */
   countTotals(args: {
     status?: ConversationStatus;
     search?: string;
@@ -84,8 +69,6 @@ export async function listConversations(
     return { outcome: "invalid-status" };
   }
 
-  // `openapi.yaml`: "Empty string is treated as absent." Whitespace-only likewise — the
-  // frontend already trims (T-017), and the contract must hold regardless of client.
   const search = query.search?.trim() ? query.search.trim() : undefined;
 
   const filters = { status, search };
@@ -99,8 +82,6 @@ export async function listConversations(
   const hasMore = rows.length > CONVERSATION_PAGE_LIMIT;
   const page = hasMore ? rows.slice(0, CONVERSATION_PAGE_LIMIT) : rows;
 
-  // Totals describe the whole filtered set, not this page — the design's footer line
-  // reads "1 of 4 conversations · 2 open", so `matching` must not be `page.length`.
   const totals = await store.countTotals(filters);
 
   return {
@@ -138,11 +119,6 @@ export async function getConversation(
   };
 }
 
-/**
- * D-019: status is the only mutable field. D-047's two automatic transitions
- * (create-as-`Open`, reopen-`Closed`-as-`Pending`) belong to the inbound path, not here —
- * this is the admin acting explicitly.
- */
 export async function setConversationStatus(
   conversationId: string,
   requestedStatus: unknown,
@@ -163,10 +139,6 @@ export async function setConversationStatus(
 
 export type MarkReadResult = "ok" | "not-found";
 
-/**
- * D-007: opening a thread marks it read. D-027 makes read state a single per-conversation
- * boolean rather than a per-message flag, so this is one write, and idempotent.
- */
 export async function markConversationRead(
   conversationId: string,
   store: ConversationStore,
@@ -193,7 +165,6 @@ function parseStatusFilter(
   raw: string | null | undefined,
 ): ConversationStatus | undefined | "invalid" {
   if (raw === undefined || raw === null || raw === "") {
-    // `openapi.yaml`: omit for the All filter.
     return undefined;
   }
 

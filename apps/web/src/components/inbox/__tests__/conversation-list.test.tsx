@@ -8,8 +8,6 @@ import type {
   ConversationSummary,
 } from "@/lib/api/types";
 
-/** T-017 verification. Data is a hand-built double of the D-021 response shape. */
-
 const NOW = new Date("2026-08-12T10:00:00+07:00");
 
 function conversation(
@@ -173,8 +171,6 @@ describe("ConversationList", () => {
     });
   });
 
-  /* ------------------------------------------------------ negative cases --- */
-
   it("renders an empty state when there are no conversations at all", () => {
     renderList({ data: response([]) });
 
@@ -215,7 +211,6 @@ describe("ConversationList", () => {
     expect(screen.queryByText(/conversations ·/)).not.toBeInTheDocument();
   });
 
-  /** §3.5: none of the design's fixture conversations may appear. */
   it("renders no design fixture data", () => {
     const { container } = render(
       <ConversationList

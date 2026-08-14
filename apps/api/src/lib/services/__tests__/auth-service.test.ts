@@ -67,8 +67,6 @@ describe("joinWorkspace — positive cases (D-036, D-038)", () => {
     const store = createStore();
 
     await joinWorkspace(
-      // A body-supplied id must not be honoured: it would let any authenticated caller
-      // grant membership to someone else's LINE account.
       {
         code: ACCESS_CODE,
         lineUserId: LINE_USER_ID,
@@ -96,7 +94,6 @@ describe("joinWorkspace — negative cases required by T-004", () => {
   });
 
   it("treats an empty code as an invalid request, not a rejection", async () => {
-    // 400, not 401 — the distinction openapi.yaml draws for the code check.
     const store = createStore();
 
     await expect(
@@ -149,8 +146,6 @@ describe("joinWorkspace — negative cases required by T-004", () => {
   });
 
   it("never succeeds when the configured code is empty", async () => {
-    // Otherwise a server missing ACCESS_CODE would admit everyone. config.ts refuses to
-    // boot in that state, but this use case must not depend on its caller for that.
     const store = createStore();
 
     await expect(

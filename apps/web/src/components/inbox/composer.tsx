@@ -1,29 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { ImagePlus } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { ChannelSelector } from "./channel-selector";
+import { toastManager } from "@/components/ui/toast";
+import { ALLOWED_IMAGE_MIME_TYPES } from "@/lib/api/image";
 
-/**
- * T-018: the design's composer — "Reply via" selector, input, "Send & close"
- * and "Send reply".
- *
- * D-010 records text-only in both directions, so there is no attachment,
- * sticker, or file affordance here — no upload path exists to build one on.
- */
 export function Composer({
   contactName,
   onSend,
+  onSendImage,
   disabled = false,
 }: {
   contactName: string;
   onSend: (text: string, options: { closeAfterSend: boolean }) => void;
+  onSendImage?: (file: File) => void;
   disabled?: boolean;
 }) {
   const [draft, setDraft] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const trimmed = draft.trim();
-  // Negative cases (T-018): empty and whitespace-only are not sendable.
   const canSend = trimmed.length > 0 && !disabled;
 
   const submit = (closeAfterSend: boolean) => {
@@ -32,11 +30,51 @@ export function Composer({
     setDraft("");
   };
 
+  const handleFileChosen = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !onSendImage) return;
+
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.type)) {
+      toastManager.add({
+        title: "That file isn't an image",
+        description: "Choose a JPEG, PNG, GIF, or WebP image.",
+        type: "error",
+        timeout: 8000,
+      });
+      return;
+    }
+
+    onSendImage(file);
+  };
+
   return (
     <div className="border-border-default bg-surface flex flex-none flex-col gap-2.5 border-t px-6 pt-3 pb-3.5">
       <ChannelSelector />
 
       <div className="flex flex-wrap items-center gap-2.5">
+        <input
+          ref={fileInputRef}
+          type="file"
+          data-testid="image-file-input"
+          accept={ALLOWED_IMAGE_MIME_TYPES.join(",")}
+          onChange={handleFileChosen}
+          className="sr-only"
+          aria-hidden
+          tabIndex={-1}
+        />
+        {onSendImage && (
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={disabled}
+            title="Attach an image"
+            aria-label="Attach an image"
+            className="rounded-control border-border-default bg-surface text-text-secondary hover:bg-border-subtle hover:text-text-primary flex h-[38px] w-[38px] flex-none items-center justify-center border disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ImagePlus className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+        )}
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}

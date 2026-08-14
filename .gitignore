@@ -144,3 +144,11 @@ vite.config.ts.timestamp-*
 .env
 .env.local
 .env*.local
+.apps/api/.agents
+.apps/api/.swc
+.apps/api/.swc.cache
+.apps/web/.agents
+.apps/web/.windsurf
+
+
+e2e

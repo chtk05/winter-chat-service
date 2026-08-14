@@ -3,16 +3,6 @@
 import { JoinScreen } from "./join-screen";
 import { SignInScreen } from "./sign-in-screen";
 
-/**
- * T-005: D-036's two gates, in sequence.
- *
- * The THREE states this must distinguish (D-036, and the place a security bug would
- * appear): anonymous, authenticated-but-not-joined, and joined. Treating "has a valid
- * session" as "is a member" would admit any LINE user on the platform.
- *
- * Session state arrives as props rather than through `useSession`, so this renders against
- * a double (D-022) and the routing logic is testable without Auth.js in the tree.
- */
 export type AuthGate =
   | { status: "anonymous" }
   | { status: "authenticated"; displayName: string | null }
@@ -30,8 +20,7 @@ export function LoginScreen({
   signInError?: string | null;
   onSignIn: () => void;
   onSignOut: () => void;
-  onJoined: () => void;
-  /** A member who lands here has nothing to do — send them on. */
+  onJoined: () => Promise<void>;
   onAlreadyMember: () => void;
 }) {
   if (gate.status === "member") {

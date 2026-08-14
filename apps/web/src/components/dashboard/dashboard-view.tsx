@@ -5,20 +5,6 @@ import { StatCard } from "./stat-card";
 import { formatMessageMeta } from "@/lib/format";
 import type { DashboardSummary } from "@/lib/api/types";
 
-/**
- * T-019: the design's dashboard layout populated only from `GET /dashboard/summary`.
- *
- * D-020 removes, because nothing in scope produces them:
- *  - "What they asked about" (needs topic classification)
- *  - "Who they were" new/returning/reopened split
- *  - "Avg first reply", "Queries today", "Open now", "Closed today"
- *  - the 30-day range toggle — F-003 specifies today and 7 days
- *  - Download CSV, which stays out until OQ-18 records it
- *
- * The design's "Busiest hour" and "Avg reply" table columns go for the same
- * reason. Every number below comes from the response; §3.5 forbids a placeholder.
- */
-
 const RANGES = [
   { key: "today", label: "Today" },
   { key: "7d", label: "7 days" },
@@ -102,7 +88,6 @@ export function DashboardView({
                 value={summary.activeToday}
                 caption={`of ${summary.totalContacts} contacts`}
               />
-              {/* D-027: the unit is contacts, and the label says so. */}
               <StatCard label="Unread contacts" value={summary.unread} accent />
               <StatCard label="Messages in" value={summary.messages.inbound} />
               <StatCard

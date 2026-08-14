@@ -12,8 +12,6 @@ describe("isAccessCodeCorrect", () => {
   });
 
   it("rejects a code differing only in case", () => {
-    // D-017 makes the field uppercase in the UI; the comparison itself is exact, so a
-    // lowercase submission must not pass.
     expect(isAccessCodeCorrect(EXPECTED.toLowerCase(), EXPECTED)).toBe(false);
   });
 
@@ -30,15 +28,11 @@ describe("isAccessCodeCorrect", () => {
   });
 
   it("rejects everything when the expected code is empty", () => {
-    // Otherwise an unset ACCESS_CODE would let any submission through. Config validation
-    // already refuses to boot in that state; this is the second line of defence.
     expect(isAccessCodeCorrect("", "")).toBe(false);
     expect(isAccessCodeCorrect("anything", "")).toBe(false);
   });
 
   it("does not throw on a length mismatch", () => {
-    // Hashing before comparison is what makes this safe — timingSafeEqual throws on
-    // buffers of different lengths.
     expect(() => isAccessCodeCorrect("a", EXPECTED)).not.toThrow();
   });
 });

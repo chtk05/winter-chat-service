@@ -31,7 +31,6 @@ describe("DetailsPanel — positive cases (T-020, D-052)", () => {
     render(<DetailsPanel conversation={CONVERSATION} />);
 
     expect(screen.getByText("U8f2c…4471")).toBeInTheDocument();
-    // The full id must not be rendered — the contract says truncated.
     expect(
       screen.queryByText(CONVERSATION.contact.lineUserId),
     ).not.toBeInTheDocument();
@@ -114,8 +113,6 @@ describe("DetailsPanel — negative cases", () => {
   });
 
   it("carries NONE of what D-019 removed — this panel does not reverse it", () => {
-    // OQ-35 is still open. If assigned-to, tags or notes ever return, that is a new
-    // decision and a new task, not a quiet addition here.
     const { container } = render(<DetailsPanel conversation={CONVERSATION} />);
 
     expect(container.textContent).not.toMatch(/assigned/i);
@@ -126,7 +123,6 @@ describe("DetailsPanel — negative cases", () => {
   it("renders no field the contract does not define (§3.2)", () => {
     const { container } = render(<DetailsPanel conversation={CONVERSATION} />);
 
-    // The design's remaining panel fields that map to no recorded concept.
     expect(container.textContent).not.toMatch(/session id/i);
     expect(container.textContent).not.toMatch(/priority/i);
     expect(container.textContent).not.toMatch(/sentiment/i);

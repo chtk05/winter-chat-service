@@ -4,8 +4,6 @@ import userEvent from "@testing-library/user-event";
 import { ThreadView } from "../thread-view";
 import type { Conversation, Message } from "@/lib/api/types";
 
-/** T-007 verification, against a test double of the D-021 response shape. */
-
 const CONVERSATION: Conversation = {
   id: "c1",
   contact: {
@@ -93,18 +91,54 @@ describe("ThreadView header", () => {
     expect(onStatusChange).toHaveBeenCalledWith("Closed");
   });
 
-  it("reflects and reports both panel toggles", async () => {
-    const { onToggleList, onToggleDetails } = renderThread();
+  it("reflects and reports the List switch", async () => {
+    const { onToggleList } = renderThread();
 
-    const switches = screen.getAllByRole("switch");
-    expect(switches[0]).toHaveAttribute("aria-checked", "true");
-    expect(switches[1]).toHaveAttribute("aria-checked", "false");
+    const listSwitch = screen.getByRole("switch");
+    expect(listSwitch).toHaveAttribute("aria-checked", "true");
 
-    await userEvent.click(switches[0]);
-    await userEvent.click(switches[1]);
+    await userEvent.click(listSwitch);
 
     expect(onToggleList).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects and reports the Details chevron", async () => {
+    const { onToggleDetails } = renderThread({ detailsVisible: false });
+
+    const detailsButton = screen.getByRole("button", { name: "Show details" });
+    expect(detailsButton).toHaveAttribute("aria-expanded", "false");
+    expect(detailsButton).toHaveTextContent("«");
+
+    await userEvent.click(detailsButton);
+
     expect(onToggleDetails).toHaveBeenCalledTimes(1);
+  });
+
+  it("the Details chevron flips direction when the panel is open", () => {
+    renderThread({ detailsVisible: true });
+
+    const detailsButton = screen.getByRole("button", { name: "Hide details" });
+    expect(detailsButton).toHaveAttribute("aria-expanded", "true");
+    expect(detailsButton).toHaveTextContent("»");
+  });
+
+  it("shows the contact's LINE avatar when present", () => {
+    const { view } = renderThread({
+      conversation: {
+        ...CONVERSATION,
+        contact: { ...CONVERSATION.contact, avatarUrl: "https://line/pic.jpg" },
+      },
+    });
+
+    const avatar = view.container.querySelector("img");
+    expect(avatar).toHaveAttribute("src", "https://line/pic.jpg");
+  });
+
+  it("falls back to initials when the contact has no avatar", () => {
+    const { view } = renderThread();
+
+    expect(view.container.querySelector("img")).not.toBeInTheDocument();
+    expect(screen.getByText("PS")).toBeInTheDocument();
   });
 });
 
@@ -141,8 +175,7 @@ describe("ThreadView messages", () => {
     expect(screen.getByText("sent to LINE")).toBeInTheDocument();
   });
 
-  /** D-010: a non-text inbound renders as a placeholder carrying its LINE type. */
-  it.each(["image", "sticker", "location", "file"])(
+  it.each(["sticker", "location", "file"])(
     "renders a %s placeholder with its LINE type",
     (messageType) => {
       renderThread({
@@ -154,6 +187,42 @@ describe("ThreadView messages", () => {
       );
     },
   );
+
+  it("renders an image message's mediaUrl as an img, not a placeholder", () => {
+    const { view } = renderThread({
+      messages: [
+        message({
+          messageType: "image",
+          text: null,
+          mediaUrl: "https://storage.test/chat-media/inbound/msg-1.jpg",
+        }),
+      ],
+    });
+
+    expect(
+      screen.queryByTestId("unsupported-placeholder"),
+    ).not.toBeInTheDocument();
+    const img = view.container.querySelector(
+      '[data-testid="message-bubble"] img',
+    );
+    expect(img).toHaveAttribute(
+      "src",
+      "https://storage.test/chat-media/inbound/msg-1.jpg",
+    );
+  });
+
+  it("renders 'Image unavailable' for an image message with no mediaUrl", () => {
+    renderThread({
+      messages: [message({ messageType: "image", text: null, mediaUrl: null })],
+    });
+
+    expect(screen.getByTestId("image-unavailable")).toHaveTextContent(
+      "Image unavailable",
+    );
+    expect(
+      screen.queryByTestId("unsupported-placeholder"),
+    ).not.toBeInTheDocument();
+  });
 
   it("renders a delivery failure with its reason and a retry control", async () => {
     const onRetryMessage = jest.fn();
@@ -175,7 +244,6 @@ describe("ThreadView messages", () => {
     expect(onRetryMessage).toHaveBeenCalledWith("m9");
   });
 
-  // Negative case: an empty thread renders an empty state, not a spinner.
   it("renders an empty state for a thread with no messages", () => {
     renderThread({ messages: [] });
 
@@ -213,7 +281,6 @@ describe("ThreadView paging (D-026)", () => {
     expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 
-  // Negative case: hidden when there is nothing further to fetch.
   it("hides the control when the server reports no more history", () => {
     renderThread({ hasMore: false });
 
@@ -222,7 +289,6 @@ describe("ThreadView paging (D-026)", () => {
     ).not.toBeInTheDocument();
   });
 
-  // Negative case: the control must not fire twice while a page is in flight.
   it("disables the control while a page is loading", async () => {
     const { onLoadMore } = renderThread({ hasMore: true, loadingMore: true });
 
@@ -233,7 +299,6 @@ describe("ThreadView paging (D-026)", () => {
     expect(onLoadMore).not.toHaveBeenCalled();
   });
 
-  // Negative case: a failed page load surfaces an error.
   it("surfaces a failed page load", () => {
     renderThread({
       hasMore: true,

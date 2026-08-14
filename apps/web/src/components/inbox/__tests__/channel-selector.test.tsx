@@ -3,11 +3,6 @@ import userEvent from "@testing-library/user-event";
 
 import { ChannelSelector } from "../channel-selector";
 
-/**
- * T-012 verification: "LINE is the only enabled option".
- * Negative case required by D-018: clicking a disabled channel button fires no send.
- */
-
 describe("ChannelSelector", () => {
   it("renders the design's three channels", () => {
     render(<ChannelSelector />);
@@ -52,11 +47,6 @@ describe("ChannelSelector", () => {
     );
   });
 
-  /**
-   * D-018's required negative case. The buttons carry no click handler at all —
-   * a disabled button cannot dispatch one, and this asserts the behaviour rather
-   * than the absence of a prop.
-   */
   it("fires nothing when a disabled channel is clicked", async () => {
     const onAnyClick = jest.fn();
     const { container } = render(

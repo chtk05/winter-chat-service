@@ -1,11 +1,5 @@
 import type { DashboardSummary } from "@/lib/api/types";
 
-/**
- * The design's bar chart, replotted per D-020: **messages per day over the last
- * 7 days** (D-014 calendar days), not the design's 14 days of "queries".
- *
- * The final bar is the accent colour, as the design renders today's.
- */
 export function MessageBarChart({
   series,
 }: {
@@ -24,7 +18,6 @@ export function MessageBarChart({
       <div className="mt-5 flex h-40 items-end gap-1.5">
         {series.map((day, index) => {
           const total = totals[index];
-          // Guard the all-zero case: a zero max must not produce NaN height.
           const height = max > 0 ? Math.round((total / max) * 100) : 0;
           const isToday = index === series.length - 1;
 

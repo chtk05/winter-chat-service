@@ -4,7 +4,6 @@ import { getConversationStore } from "@/lib/db/prisma";
 import { ERROR_CODES, errorResponse } from "@/lib/http/errors";
 import { listConversations } from "@/lib/services/conversations";
 
-/** T-013: `GET /api/conversations`. HTTP only — the query semantics live in the service. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const parameters = request.nextUrl.searchParams;
 

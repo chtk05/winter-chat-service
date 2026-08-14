@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 
 import { fixedClock } from "@/lib/clock";
 import type { LineClient } from "@/lib/line/client";
+import type { StorageClient } from "@/lib/storage/client";
 import type { ConversationStatus } from "@/lib/services/chat-types";
 import { ingestWebhook, type WebhookStore } from "@/lib/services/webhook";
 
@@ -63,6 +64,7 @@ function createStore(state: StoreState = {}) {
       conversationId: string;
       messageType: string;
       text: string | null;
+      mediaUrl: string | null;
       reopenAsPending: boolean;
     }>,
     replyTokens: [] as string[],
@@ -99,6 +101,7 @@ function createStore(state: StoreState = {}) {
         conversationId: args.conversationId,
         messageType: args.messageType,
         text: args.text,
+        mediaUrl: args.mediaUrl,
         reopenAsPending: args.reopenAsPending,
       });
     },
@@ -112,23 +115,69 @@ function createStore(state: StoreState = {}) {
 
 function createLine(
   profile: { displayName: string; avatarUrl: string | null } | null,
+  content: { bytes: Uint8Array; contentType: string } | null = {
+    bytes: new Uint8Array([1, 2, 3]),
+    contentType: "image/jpeg",
+  },
 ) {
   const calls: string[] = [];
+  const contentCalls: string[] = [];
   const line: LineClient = {
     async fetchProfile(lineUserId) {
       calls.push(lineUserId);
       return profile;
     },
+    async fetchContent(lineMessageId) {
+      contentCalls.push(lineMessageId);
+      return content;
+    },
+    async replyMessage() {
+      return true;
+    },
+    async pushMessage() {
+      return true;
+    },
+    async replyImage() {
+      return true;
+    },
+    async pushImage() {
+      return true;
+    },
   };
-  return { line, calls };
+  return { line, calls, contentCalls };
+}
+
+function createStorage(overrides: Partial<StorageClient> = {}) {
+  const uploadCalls: Array<{
+    bucket: string;
+    path: string;
+    contentType: string;
+  }> = [];
+
+  const storage: StorageClient = {
+    async upload({ bucket, path, contentType }) {
+      uploadCalls.push({ bucket, path, contentType });
+      return overrides.upload
+        ? overrides.upload({
+            bucket,
+            path,
+            bytes: new Uint8Array(),
+            contentType,
+          })
+        : { url: `https://storage.test/${bucket}/${path}` };
+    },
+  };
+
+  return { storage, uploadCalls };
 }
 
 function dependencies(
   store: WebhookStore,
   line: LineClient,
   channelSecret = SECRET,
+  storage: StorageClient = createStorage().storage,
 ) {
-  return { channelSecret, store, line, clock: fixedClock(NOW) };
+  return { channelSecret, store, line, clock: fixedClock(NOW), storage };
 }
 
 describe("ingestWebhook — positive cases (T-006, D-012, D-013)", () => {
@@ -171,7 +220,6 @@ describe("ingestWebhook — positive cases (T-006, D-012, D-013)", () => {
   });
 
   it("does NOT fetch the profile for a known contact (D-013)", async () => {
-    // A regression here is a LINE API call on every single inbound message.
     const { store, calls } = createStore({ existingContact: true });
     const { line, calls: lineCalls } = createLine({
       displayName: "Aom",
@@ -234,6 +282,136 @@ describe("ingestWebhook — positive cases (T-006, D-012, D-013)", () => {
   });
 });
 
+describe("ingestWebhook — inbound images (D-058)", () => {
+  it("downloads the content and stores the uploaded mediaUrl, no text", async () => {
+    const { store, calls } = createStore();
+    const { line } = createLine(null, {
+      bytes: new Uint8Array([1, 2, 3]),
+      contentType: "image/jpeg",
+    });
+    const { storage } = createStorage();
+    const raw = body([messageEvent({ type: "image" })]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line, SECRET, storage),
+    );
+
+    expect(calls.messages).toHaveLength(1);
+    expect(calls.messages[0]).toMatchObject({
+      messageType: "image",
+      text: null,
+      mediaUrl: "https://storage.test/chat-media/inbound/msg-1.jpg",
+    });
+  });
+
+  it("fetches content using the LINE MESSAGE id, not the webhook event id", async () => {
+    const { store } = createStore();
+    const { line } = createLine(null);
+    const { storage, uploadCalls } = createStorage();
+    const raw = body([messageEvent({ id: "evt-distinct", type: "image" })]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line, SECRET, storage),
+    );
+
+    expect(uploadCalls[0]?.path).toBe("inbound/msg-1.jpg");
+  });
+
+  it("uploads to the chat-media bucket with the LINE-reported content-type", async () => {
+    const { store } = createStore();
+    const { line } = createLine(null, {
+      bytes: new Uint8Array([1]),
+      contentType: "image/png",
+    });
+    const { storage, uploadCalls } = createStorage();
+    const raw = body([messageEvent({ type: "image" })]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line, SECRET, storage),
+    );
+
+    expect(uploadCalls[0]).toMatchObject({
+      bucket: "chat-media",
+      path: "inbound/msg-1.png",
+      contentType: "image/png",
+    });
+  });
+
+  it("a text event never calls fetchContent or storage.upload", async () => {
+    const { store } = createStore();
+    const { line, contentCalls } = createLine(null);
+    const { storage, uploadCalls } = createStorage();
+    const raw = body([messageEvent({ type: "text" })]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line, SECRET, storage),
+    );
+
+    expect(contentCalls).toHaveLength(0);
+    expect(uploadCalls).toHaveLength(0);
+  });
+
+  it("a failed CONTENT download still stores the message, with mediaUrl null", async () => {
+    const { store, calls } = createStore();
+    const { line } = createLine(null, null);
+    const { storage, uploadCalls } = createStorage();
+    const raw = body([messageEvent({ type: "image" })]);
+
+    await expect(
+      ingestWebhook(
+        { rawBody: raw, signature: sign(raw) },
+        dependencies(store, line, SECRET, storage),
+      ),
+    ).resolves.toEqual({ outcome: "accepted", stored: 1, skipped: 0 });
+
+    expect(calls.messages[0]).toMatchObject({
+      messageType: "image",
+      mediaUrl: null,
+    });
+    expect(uploadCalls).toHaveLength(0);
+  });
+
+  it("a failed UPLOAD still stores the message, with mediaUrl null", async () => {
+    const { store, calls } = createStore();
+    const { line } = createLine(null);
+    const { storage } = createStorage({ upload: async () => null });
+    const raw = body([messageEvent({ type: "image" })]);
+
+    await expect(
+      ingestWebhook(
+        { rawBody: raw, signature: sign(raw) },
+        dependencies(store, line, SECRET, storage),
+      ),
+    ).resolves.toEqual({ outcome: "accepted", stored: 1, skipped: 0 });
+
+    expect(calls.messages[0]).toMatchObject({
+      messageType: "image",
+      mediaUrl: null,
+    });
+  });
+
+  it("an unrecognised content-type falls back to a .jpg extension", async () => {
+    const { store } = createStore();
+    const { line } = createLine(null, {
+      bytes: new Uint8Array([1]),
+      contentType: "application/octet-stream",
+    });
+    const { storage, uploadCalls } = createStorage();
+    const raw = body([messageEvent({ type: "image" })]);
+
+    await ingestWebhook(
+      { rawBody: raw, signature: sign(raw) },
+      dependencies(store, line, SECRET, storage),
+    );
+
+    expect(uploadCalls[0]?.path).toBe("inbound/msg-1.jpg");
+  });
+});
+
 describe("ingestWebhook — D-047 status transitions", () => {
   it("REOPENS a Closed conversation as Pending", async () => {
     const { store, calls } = createStore({
@@ -247,7 +425,6 @@ describe("ingestWebhook — D-047 status transitions", () => {
       dependencies(store, line),
     );
 
-    // D-048: the SAME conversation, not a new one.
     expect(calls.conversationsCreated).toEqual([]);
     expect(calls.messages[0]).toMatchObject({
       conversationId: "conv-old",
@@ -378,7 +555,6 @@ describe("ingestWebhook — negative cases required by T-006 and D-012", () => {
   });
 
   it("verifies the signature BEFORE parsing, so an unsigned malformed body is 401", async () => {
-    // Order matters: an attacker must not be able to tell malformed from unsigned.
     const { store } = createStore();
     const { line } = createLine(null);
 
@@ -417,7 +593,6 @@ describe("ingestWebhook — negative cases required by T-006 and D-012", () => {
   );
 
   it("still stores the message when the profile fetch FAILS, falling back to the LINE user id", async () => {
-    // D-013: a profile-API failure must not block storing the inbound message.
     const { store, calls } = createStore({ existingContact: false });
     const { line } = createLine(null);
     const raw = body([messageEvent()]);
@@ -470,8 +645,6 @@ describe("ingestWebhook — negative cases required by T-006 and D-012", () => {
     ["a null event", null],
     ["a string event", "nope"],
   ])("DROPS %s without erroring the batch", async (_label, event) => {
-    // LINE sends these legitimately. 400-ing the batch would make it retry a payload that
-    // can never succeed.
     const { store, calls } = createStore();
     const { line } = createLine(null);
     const raw = body([event as object]);
@@ -508,8 +681,6 @@ describe("ingestWebhook — negative cases required by T-006 and D-012", () => {
   });
 
   it("propagates a store failure rather than answering accepted", async () => {
-    // Swallowing it would return 200 and lose the message permanently. A throw becomes a
-    // 500, LINE retries, and the dedupe makes the retry safe.
     const { store } = createStore();
     const { line } = createLine(null);
     const failing: WebhookStore = {

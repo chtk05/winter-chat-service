@@ -1,30 +1,42 @@
+import { ArrowLeft } from "lucide-react";
+
 import type { Conversation } from "@/lib/api/types";
 
-/**
- * T-020: the details panel behind the thread-header toggle.
- *
- * D-052 (2026-08-13) unblocked this after it sat on OQ-21 since 2026-08-12. Every row
- * below comes from a field `openapi.yaml` already defines and `GET /conversations/{id}`
- * already returns — nothing here is invented (§3.2).
- *
- * D-019 is NOT reversed: assigned-to, tags and internal notes stay out of scope, and
- * OQ-35 stays open. This panel routes around that question rather than settling it.
- *
- * The design's "session id" is read as the CONVERSATION ID (D-052). That is the only
- * recorded concept it can mean — there is no session resource, and D-039 removed the one
- * that briefly existed.
- */
 export function DetailsPanel({
   conversation,
+  detailsVisible = true,
+  mobileVisible = false,
+  onBack,
 }: {
   conversation: Conversation | null;
+  detailsVisible?: boolean;
+  mobileVisible?: boolean;
+  onBack?: () => void;
 }) {
+  const visibilityClass = [
+    mobileVisible ? "flex" : "hidden",
+    detailsVisible ? "lg:flex" : "lg:hidden",
+  ].join(" ");
+
+  const backButton = onBack && (
+    <button
+      type="button"
+      onClick={onBack}
+      aria-label="Back to conversation"
+      title="Back to conversation"
+      className="border-border-default hover:bg-border-subtle mb-1 flex h-8 w-8 flex-none items-center justify-center self-start rounded-full border lg:hidden"
+    >
+      <ArrowLeft aria-hidden className="h-4 w-4" />
+    </button>
+  );
+
   if (!conversation) {
     return (
       <aside
         aria-label="Conversation details"
-        className="border-border-default bg-surface flex w-[280px] shrink-0 flex-col border-l p-5 max-lg:hidden"
+        className={`border-border-default bg-surface w-full flex-col border-l p-5 lg:w-[280px] lg:shrink-0 ${visibilityClass}`}
       >
+        {backButton}
         <p className="text-text-secondary text-[13px]">
           Select a conversation to see its details.
         </p>
@@ -37,13 +49,11 @@ export function DetailsPanel({
   return (
     <aside
       aria-label="Conversation details"
-      className="border-border-default bg-surface flex w-[280px] shrink-0 flex-col gap-5 overflow-y-auto border-l p-5 max-lg:hidden"
+      className={`border-border-default bg-surface w-full flex-col gap-5 overflow-y-auto border-l p-5 lg:w-[280px] lg:shrink-0 ${visibilityClass}`}
     >
+      {backButton}
       <div className="flex items-center gap-3">
         {contact.avatarUrl ? (
-          /* eslint-disable-next-line @next/next/no-img-element --
-             LINE avatar URLs are arbitrary remote hosts; next/image would need each
-             one configured in next.config, which no decision records. */
           <img
             src={contact.avatarUrl}
             alt=""
@@ -56,7 +66,6 @@ export function DetailsPanel({
           <p className="truncate text-[14px] font-semibold">
             {contact.displayName}
           </p>
-          {/* D-018: always LINE. The other channels are inert chrome, not a data field. */}
           <p className="text-text-secondary text-[12px]">
             {conversation.channel}
           </p>
@@ -65,8 +74,6 @@ export function DetailsPanel({
 
       <dl className="flex flex-col gap-3">
         <DetailRow label="LINE user">
-          {/* `openapi.yaml` states outright this is "shown truncated in the details
-              panel". Truncation is presentation — the API returns the full id. */}
           <span className="font-mono">
             {truncateLineUserId(contact.lineUserId)}
           </span>
@@ -103,7 +110,6 @@ function DetailRow({
   );
 }
 
-/** The design's `U8f2c…4471` form: first five characters, an ellipsis, last four. */
 export function truncateLineUserId(lineUserId: string): string {
   if (lineUserId.length <= 10) {
     return lineUserId;
@@ -121,8 +127,6 @@ function truncateId(id: string): string {
 function formatDate(iso: string): string {
   const parsed = new Date(iso);
 
-  // A malformed timestamp renders as an em dash rather than "Invalid Date". It is a
-  // formatting failure, not a value to display.
   if (Number.isNaN(parsed.getTime())) {
     return "—";
   }

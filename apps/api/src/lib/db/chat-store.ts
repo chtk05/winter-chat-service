@@ -8,14 +8,6 @@ import type {
 import type { DashboardStore } from "@/lib/services/dashboard";
 import type { ThreadStore } from "@/lib/services/thread";
 
-/**
- * The Prisma-backed chat stores (AGENTS.md: `lib/db/**` owns Prisma).
- *
- * Everything above this file works against the narrow ports declared beside each service,
- * so the services are unit-tested with doubles and this module is the only place that
- * knows a query shape.
- */
-
 const conversationSelection = {
   id: true,
   status: true,
@@ -39,6 +31,7 @@ const messageSelection = {
   direction: true,
   messageType: true,
   text: true,
+  mediaUrl: true,
   deliveryStatus: true,
   failureReason: true,
   sentVia: true,
@@ -56,8 +49,6 @@ export function createPrismaThreadStore(prisma: PrismaClient): ThreadStore {
     },
 
     async listMessagesDescending({ conversationId, before, take }) {
-      // The cursor is a message id. Its `createdAt` is resolved first so paging orders by
-      // time rather than by id — cuids are not chronologically comparable.
       const cursor = before
         ? await prisma.message.findUnique({
             where: { id: before },
@@ -68,8 +59,6 @@ export function createPrismaThreadStore(prisma: PrismaClient): ThreadStore {
       return prisma.message.findMany({
         where: {
           conversationId,
-          // An unknown `before` id yields no cursor, and the page falls back to the
-          // newest messages rather than erroring — the contract has no 400 for it.
           ...(cursor ? { createdAt: { lt: cursor.createdAt } } : {}),
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -83,13 +72,11 @@ export function createPrismaThreadStore(prisma: PrismaClient): ThreadStore {
 export function createPrismaConversationStore(
   prisma: PrismaClient,
 ): ConversationStore {
-  /** Shared by the list and the totals so a filter can never apply to only one of them. */
   function whereFilter(args: { status?: ConversationStatus; search?: string }) {
     return {
       ...(args.status ? { status: args.status } : {}),
       ...(args.search
         ? {
-            // D-019: search matches the contact's display name AND message text.
             OR: [
               {
                 contact: {
@@ -124,8 +111,6 @@ export function createPrismaConversationStore(
       select: { text: true },
     });
 
-    // A non-text placeholder has no text (D-010); the row simply carries no snippet
-    // rather than an invented label.
     return latest?.text ?? undefined;
   }
 
@@ -138,9 +123,6 @@ export function createPrismaConversationStore(
           })
         : null;
 
-      // D-048: one row per contact — the most recent conversation. `distinct` on
-      // `contactId` with this ordering is Postgres's DISTINCT ON, so the row kept per
-      // contact is the newest one, which is exactly the recorded requirement.
       const rows = await prisma.conversation.findMany({
         where: {
           ...whereFilter({ status, search }),
@@ -163,8 +145,6 @@ export function createPrismaConversationStore(
     },
 
     async countTotals({ status, search }) {
-      // D-048: these count CONTACTS, not conversations — the list is one row per contact,
-      // so a footer counting conversations would disagree with the rows above it.
       const [matching, all, open] = await Promise.all([
         countContacts(whereFilter({ status, search })),
         countContacts({}),
@@ -205,8 +185,6 @@ export function createPrismaConversationStore(
     },
 
     async markRead(conversationId) {
-      // `updateMany` rather than `update`: it reports how many rows matched instead of
-      // throwing on a missing id, which is what distinguishes 204 from 404 here.
       const { count } = await prisma.conversation.updateMany({
         where: { id: conversationId },
         data: { unread: false },
@@ -236,8 +214,6 @@ export function createPrismaDashboardStore(
     },
 
     async countUnreadContacts() {
-      // D-027: the unit is CONTACTS holding unread, which is why this is distinct on
-      // contactId rather than a conversation count.
       const rows = await prisma.conversation.findMany({
         where: { unread: true },
         distinct: ["contactId"],
@@ -283,7 +259,6 @@ export function createPrismaDashboardStore(
 
       return rows.map((row) => ({
         conversationId: row.conversationId,
-        // D-013's recorded fallback, same as the contact DTO's.
         contactName:
           row.conversation.contact.displayName ??
           row.conversation.contact.lineUserId,

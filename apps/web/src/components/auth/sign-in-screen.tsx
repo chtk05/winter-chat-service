@@ -1,38 +1,35 @@
 "use client";
 
 import { MarketingPanel } from "./marketing-panel";
+import { StepIndicator } from "./step-indicator";
+import { BrandMark } from "@/components/shell/brand-mark";
 
-/**
- * T-005, gate ONE of D-036's two: establish *who* the person is, with LINE Login (D-035).
- *
- * `onSignIn` is injected rather than importing `signIn` here, so this component renders
- * against a double in tests (D-022) and never drags Auth.js into the component layer. The
- * page wires the real `signIn("line")`.
- *
- * D-017's visual treatment stands — the split layout and `#eef2ff` marketing panel. Its
- * copy rules do not: LINE-account language is now accurate rather than a fabrication,
- * because D-035 makes LINE the actual identity provider.
- */
 export function SignInScreen({
   onSignIn,
   error,
 }: {
   onSignIn: () => void;
-  /** Set when LINE returned an error, or the user cancelled at LINE's consent screen. */
   error?: string | null;
 }) {
   return (
-    <div className="bg-surface flex min-h-0 flex-1 overflow-y-auto max-lg:flex-col">
+    <div className="bg-bg flex min-h-0 flex-1 overflow-y-auto max-lg:flex-col">
       <MarketingPanel />
 
-      <div className="flex min-w-[340px] flex-1 items-center justify-center px-8 py-10">
-        <div className="flex w-full max-w-[380px] flex-col gap-5">
+      <div className="p-6 lg:hidden">
+        <BrandMark />
+      </div>
+
+      <div className="flex min-w-[340px] flex-1 items-center justify-center px-6 py-10">
+        <div className="border-border-default bg-surface flex w-full max-w-[400px] flex-col gap-6 rounded-[14px] border p-8 shadow-[0_12px_40px_-16px_rgba(9,9,11,0.16)]">
+          <StepIndicator step={1} />
+
           <div>
             <h1 className="tracking-heading text-[22px] font-semibold">
-              Sign in to WinterChat
+              Sign in with LINE
             </h1>
-            <p className="text-text-secondary mt-1.5 text-[13px]">
-              Sign in with your LINE account to continue.
+            <p className="text-text-secondary mt-1.5 text-[13px] leading-[1.6]">
+              WinterChat uses your LINE account to identify you. Nothing is
+              posted on your behalf.
             </p>
           </div>
 
@@ -48,16 +45,29 @@ export function SignInScreen({
           <button
             type="button"
             onClick={onSignIn}
-            className="rounded-control bg-primary hover:bg-primary-hover h-12 text-[15px] font-semibold text-white"
+            className="rounded-control bg-line flex h-12 items-center justify-center gap-2.5 text-[15px] font-semibold text-white transition-opacity hover:opacity-90"
           >
-            Sign in with LINE
+            <LineMark />
+            Continue with LINE
           </button>
 
           <p className="text-text-secondary text-[13px] leading-[1.6]">
-            You will need a join code from an admin after signing in.
+            After signing in you&apos;ll enter the invite code your admin sent
+            you.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function LineMark() {
+  return (
+    <span
+      aria-hidden
+      className="text-line rounded-chip flex h-6 w-6 flex-none items-center justify-center bg-white text-[9px] font-bold"
+    >
+      LINE
+    </span>
   );
 }

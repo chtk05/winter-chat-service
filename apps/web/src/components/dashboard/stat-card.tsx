@@ -1,11 +1,3 @@
-/**
- * The design's stat card.
- *
- * D-020 / §3.5: no card may display a placeholder or fabricated number. Empty
- * data renders a zero, so `value` is a required number — there is no "—" state
- * and no way to pass one. The design's comparison sub-lines ("+4 vs yesterday")
- * are dropped: F-003 produces no prior-period figure to compare against.
- */
 export function StatCard({
   label,
   value,

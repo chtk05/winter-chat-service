@@ -9,12 +9,6 @@ import {
 } from "../messages";
 import type { Message } from "@/lib/api/types";
 
-/**
- * T-009 verification: unit tests over **synthetic** change payloads. D-005 puts
- * realtime *delivery* at integration level (phase 3), so nothing here opens a
- * socket or touches Supabase.
- */
-
 function message(overrides: Partial<Message> = {}): Message {
   return {
     id: "m1",
@@ -90,7 +84,6 @@ describe("upsertMessage", () => {
     expect(result[0].deliveryStatus).toBe("sent");
   });
 
-  // Negative case: a duplicate payload does not duplicate a row in state.
   it("does not duplicate when the same id arrives twice", () => {
     const first = message({ id: "m1" });
     const again = message({ id: "m1", text: "Hello (edited)" });
@@ -101,7 +94,6 @@ describe("upsertMessage", () => {
     expect(result[0].text).toBe("Hello (edited)");
   });
 
-  // Negative case: out-of-order arrival still lands in timestamp order.
   it("orders out-of-order arrivals by createdAt", () => {
     const t1 = message({ id: "m1", createdAt: "2026-08-12T09:00:00+07:00" });
     const t2 = message({ id: "m2", createdAt: "2026-08-12T09:01:00+07:00" });
@@ -133,7 +125,6 @@ describe("mergeOlderPage", () => {
     ]);
   });
 
-  // Negative case: an overlapping page must not duplicate rows.
   it("drops messages already loaded when pages overlap", () => {
     const loaded = [message({ id: "m2" }), message({ id: "m3" })];
     const older = [message({ id: "m1" }), message({ id: "m2" })];
@@ -251,7 +242,6 @@ describe("applyRealtimeChange", () => {
     expect(result[0].deliveryStatus).toBe("sent");
   });
 
-  // Negative case: duplicate payload does not duplicate a row in state.
   it("ignores a redelivered insert", () => {
     const payload = change("INSERT", message());
     const once = applyRealtimeChange([], payload, "c1");
@@ -260,7 +250,6 @@ describe("applyRealtimeChange", () => {
     expect(twice).toHaveLength(1);
   });
 
-  // Negative case: payload for a conversation not currently loaded.
   it("ignores a payload for another conversation", () => {
     const result = applyRealtimeChange(
       [],
@@ -275,7 +264,6 @@ describe("applyRealtimeChange", () => {
     expect(result).toEqual([]);
   });
 
-  // Negative case: malformed payload is dropped, not crashed on.
   it.each([
     ["null", null],
     ["a string", "oops"],
@@ -302,7 +290,6 @@ describe("applyRealtimeChange", () => {
     ).toBe(existing);
   });
 
-  // Negative case: out-of-order realtime arrival still sorts correctly.
   it("keeps timestamp order when payloads arrive out of order", () => {
     const later = message({ id: "m2", createdAt: "2026-08-12T09:05:00+07:00" });
     const earlier = message({

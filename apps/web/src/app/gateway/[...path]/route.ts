@@ -7,30 +7,14 @@ import {
   readSessionSecret,
 } from "@/lib/auth/service-token";
 
-/**
- * T-027: the D-040 proxy. Every browser call to the API goes through here, server-side.
- * `apps/api` is never contacted by the browser, so there is no CORS, no cross-site cookie,
- * and `apps/api` need not be publicly reachable except for LINE's webhook.
- *
- * D-042: `/gateway/<path>` maps to `<API_ORIGIN>/api/<path>`. That mapping lives here and
- * nowhere else.
- * D-041: a fresh service token is minted PER CALL and sent as `Authorization: Bearer`.
- * D-021: the upstream status and body are returned unchanged, so the uniform error shape
- * survives the hop.
- */
-
 const HOP_BY_HOP = new Set([
   "connection",
   "keep-alive",
   "transfer-encoding",
   "upgrade",
-  // `host` would name apps/web, not the upstream.
   "host",
   "content-length",
-  // THE IMPORTANT ONE: the browser's cookies must never be forwarded. The whole design
-  // rests on apps/api trusting one minted token and nothing else. Asserted as a test.
   "cookie",
-  // Ours to set, from the minted token — never the caller's to supply.
   "authorization",
 ]);
 
@@ -40,8 +24,6 @@ async function proxy(
 ): Promise<NextResponse> {
   const session = await auth();
 
-  // D-036/D-046: no session at all is refused HERE and never forwarded. A request with no
-  // identity has no token to mint and nothing upstream could do with it.
   if (!session?.lineUserId) {
     return NextResponse.json(
       { error: { code: "UNAUTHORIZED", message: "Sign in to continue." } },
@@ -71,7 +53,6 @@ async function proxy(
   }
 
   const upstream = new URL(`/api/${path.join("/")}`, readApiOrigin());
-  // Query strings must survive the hop — the conversation list's filter and search live there.
   upstream.search = request.nextUrl.search;
 
   const headers = new Headers();
@@ -86,24 +67,20 @@ async function proxy(
     const response = await fetch(upstream, {
       method: request.method,
       headers,
-      // GET and HEAD may not carry a body.
       body:
         request.method === "GET" || request.method === "HEAD"
           ? undefined
-          : await request.text(),
+          : await request.arrayBuffer(),
       redirect: "manual",
       cache: "no-store",
     });
 
-    // Status and body returned UNCHANGED so D-021's error shape survives (T-027's scope).
     return new NextResponse(response.body, {
       status: response.status,
       statusText: response.statusText,
       headers: responseHeaders(response),
     });
   } catch (error) {
-    // Upstream unreachable or timed out. 502 rather than a thrown 500, so the console can
-    // tell "the API is down" from "this app is broken".
     console.error("[gateway] upstream unreachable:", error);
     return NextResponse.json(
       {
@@ -117,15 +94,18 @@ async function proxy(
   }
 }
 
+const CONTENT_CODING_HEADERS = new Set(["content-encoding", "content-length"]);
+
 function responseHeaders(response: Response): Headers {
   const headers = new Headers();
 
   for (const [name, value] of response.headers) {
-    // D-039 says apps/api sets no cookies; if one ever appeared, it must not be relayed
-    // into the browser where it could collide with Auth.js's own.
+    const lowered = name.toLowerCase();
+
     if (
-      name.toLowerCase() !== "set-cookie" &&
-      !HOP_BY_HOP.has(name.toLowerCase())
+      lowered !== "set-cookie" &&
+      !HOP_BY_HOP.has(lowered) &&
+      !CONTENT_CODING_HEADERS.has(lowered)
     ) {
       headers.set(name, value);
     }

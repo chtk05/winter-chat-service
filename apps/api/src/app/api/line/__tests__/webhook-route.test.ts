@@ -148,8 +148,6 @@ describe("POST /api/line/webhook — D-012", () => {
   });
 
   it("verifies the RAW body — a re-serialised equivalent must not validate", async () => {
-    // The HMAC is over the exact bytes. If the route ever parsed and re-stringified the
-    // body, key order and whitespace would shift and this would start passing.
     const spaced = JSON.stringify(JSON.parse(VALID_BODY), null, 2);
 
     const response = await POST(webhookRequest(spaced, sign(VALID_BODY)));
