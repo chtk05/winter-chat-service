@@ -79,7 +79,11 @@ function persisted(overrides: Partial<Message> = {}): Message {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  api.listMessages.mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
+  api.listMessages.mockResolvedValue({
+    items: [],
+    hasMore: false,
+    nextCursor: null,
+  });
 });
 
 describe("optimistic send", () => {
@@ -92,7 +96,10 @@ describe("optimistic send", () => {
     );
 
     renderPanel();
-    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.type(
+      screen.getByLabelText("Reply message"),
+      "On the 12th.",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
 
     const bubble = await screen.findByTestId("message-bubble");
@@ -122,7 +129,10 @@ describe("optimistic send", () => {
     api.sendMessage.mockResolvedValue(persisted({ sentVia: "reply" }));
 
     renderPanel();
-    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.type(
+      screen.getByLabelText("Reply message"),
+      "On the 12th.",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
 
     await waitFor(() =>
@@ -177,7 +187,10 @@ describe("optimistic send", () => {
     api.sendMessage.mockRejectedValue(new Error("network"));
 
     renderPanel();
-    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.type(
+      screen.getByLabelText("Reply message"),
+      "On the 12th.",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
 
     const bubble = await screen.findByTestId("message-bubble");
@@ -238,7 +251,10 @@ describe("retry", () => {
     api.sendMessage.mockRejectedValueOnce(new Error("network"));
 
     renderPanel();
-    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.type(
+      screen.getByLabelText("Reply message"),
+      "On the 12th.",
+    );
     await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
 
     await screen.findByRole("button", { name: "Retry" });
@@ -269,14 +285,20 @@ describe("retry", () => {
       nextCursor: null,
     });
     api.retryMessage.mockResolvedValue(
-      persisted({ id: "server-9", clientId: "client-uuid-old", deliveryStatus: "sending" }),
+      persisted({
+        id: "server-9",
+        clientId: "client-uuid-old",
+        deliveryStatus: "sending",
+      }),
     );
 
     renderPanel();
 
     await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
 
-    await waitFor(() => expect(api.retryMessage).toHaveBeenCalledWith("server-9"));
+    await waitFor(() =>
+      expect(api.retryMessage).toHaveBeenCalledWith("server-9"),
+    );
     expect(api.sendMessage).not.toHaveBeenCalled();
   });
 

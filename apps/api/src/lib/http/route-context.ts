@@ -1,39 +1,32 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 import {
   ConfigurationError,
   readAuthConfig,
   type AuthConfig,
 } from "@/lib/config";
-import { corsHeaders, preflightHeaders } from "@/lib/http/cors";
 import { ERROR_CODES, errorResponse } from "@/lib/http/errors";
 
 /**
- * Every route in this app needs the same three things before it can do anything: the
- * validated config, the CORS headers for the caller's origin (D-029), and a way to fail
- * when the environment is wrong. Declared once here so the routes stay HTTP-only.
+ * Every route in this app needs the same two things before it can do anything: the
+ * validated config, and a way to fail when the environment is wrong. Declared once here
+ * so the routes stay HTTP-only.
+ *
+ * D-040 removed the CORS half of this module along with `cors.ts` — no browser reaches
+ * `apps/api`, so there is no origin to allow-list and no preflight to answer.
  */
-export type RouteContext =
-  | {
-      readonly ok: true;
-      readonly config: AuthConfig;
-      readonly cors: Record<string, string>;
-    }
+/**
+ * Named `RouteEnvironment`, not `RouteContext`: Next 16 makes `RouteContext<'/path'>` a
+ * global type for the handler's second argument, and two different things called
+ * `RouteContext` in the same file is a trap for the next reader.
+ */
+export type RouteEnvironment =
+  | { readonly ok: true; readonly config: AuthConfig }
   | { readonly ok: false; readonly response: NextResponse };
 
-export function routeContext(
-  request: NextRequest,
-  routeName: string,
-): RouteContext {
-  const requestOrigin = request.headers.get("origin");
-
+export function routeContext(routeName: string): RouteEnvironment {
   try {
-    const config = readAuthConfig(process.env);
-    return {
-      ok: true,
-      config,
-      cors: corsHeaders(requestOrigin, config.allowedOrigins),
-    };
+    return { ok: true, config: readAuthConfig(process.env) };
   } catch (error) {
     if (!(error instanceof ConfigurationError)) {
       throw error;
@@ -49,31 +42,7 @@ export function routeContext(
         500,
         ERROR_CODES.serverMisconfigured,
         "The server is not configured correctly.",
-        // No allow-list is trustworthy when the config failed to parse, so no CORS
-        // headers are emitted.
-        corsHeaders(requestOrigin, []),
       ),
     };
   }
-}
-
-/**
- * Preflight for the credentialed `fetch` in `apps/web/src/lib/api/client.ts`. A
- * misconfigured server answers without CORS headers, so the browser blocks the real
- * request rather than sending credentials into an unknown state.
- */
-export function preflightResponse(request: NextRequest): NextResponse {
-  const requestOrigin = request.headers.get("origin");
-
-  let allowedOrigins: readonly string[] = [];
-  try {
-    allowedOrigins = readAuthConfig(process.env).allowedOrigins;
-  } catch {
-    allowedOrigins = [];
-  }
-
-  return new NextResponse(null, {
-    status: 204,
-    headers: preflightHeaders(requestOrigin, allowedOrigins),
-  });
 }

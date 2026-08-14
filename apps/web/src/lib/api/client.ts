@@ -9,18 +9,18 @@ import type {
 } from "./types";
 
 /**
- * The one place the API origin is named.
+ * The one place the API path is named.
  *
- * D-025 made `apps/api` a second origin, and recorded that frontend fetches go
- * through a single configured base URL so that OQ-28 (cookie strategy) and the
- * deployment topology stay a one-line change. Do not hardcode a path anywhere else.
+ * **D-040 + D-042 (2026-08-13): this is now a RELATIVE, SAME-ORIGIN path.** The browser
+ * never contacts `apps/api` directly — `apps/web` proxies server-side at `/gateway/*` and
+ * attaches the D-041 service token. The proxy maps `/gateway/<path>` to
+ * `<API_ORIGIN>/api/<path>`, so D-030's `/api` prefix still applies but lives in the proxy
+ * rather than here.
  *
- * D-030: `openapi.yaml` declares `servers: [{ url: /api }]`, so every path below is
- * served under `/api` and the prefix belongs here rather than at each call site.
+ * This supersedes the previous `NEXT_PUBLIC_API_BASE_URL` origin: shipping the API origin
+ * to the client bundle would invite exactly the direct call the design removed.
  */
-export const API_BASE_URL = `${
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001"
-}/api`;
+export const API_BASE_URL = "/gateway";
 
 /** D-026: initial thread load. */
 export const INITIAL_MESSAGE_LIMIT = 30;
@@ -62,8 +62,9 @@ async function toApiError(response: Response): Promise<ApiError> {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    // D-008: the session is a cookie, and D-025 made it cross-origin.
-    credentials: "include",
+    // D-040: same-origin now. Auth.js's cookie keeps its `SameSite=Lax` default — the
+    // stronger setting — and is sent to `/gateway/*` because that is this app's own origin.
+    credentials: "same-origin",
     headers:
       init?.body === undefined
         ? undefined
@@ -84,15 +85,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 /* ---------------------------------------------------------------- auth --- */
 
-export function login(code: string): Promise<void> {
-  return request<void>("/auth/login", {
+/**
+ * D-036's SECOND gate. The caller has already signed in with LINE; this submits the join
+ * code. D-039 removed `login` and `logout` from this client entirely — NextAuth owns both
+ * in `apps/web`, so they are `signIn`/`signOut` from `@/auth`, not HTTP calls to the API.
+ *
+ * D-042: reached at `/gateway/auth/join`.
+ */
+export function joinWorkspace(code: string): Promise<void> {
+  return request<void>("/auth/join", {
     method: "POST",
     body: JSON.stringify({ code }),
   });
-}
-
-export function logout(): Promise<void> {
-  return request<void>("/auth/logout", { method: "POST" });
 }
 
 /* --------------------------------------------------------- conversations --- */

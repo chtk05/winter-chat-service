@@ -78,11 +78,21 @@ describe("stat cards", () => {
     const card = (label: string) =>
       screen.getByText(label).closest("div")!.parentElement!;
 
-    expect(within(card("Total contacts")).getByTestId("stat-value")).toHaveTextContent("42");
-    expect(within(card("Active today")).getByTestId("stat-value")).toHaveTextContent("7");
-    expect(within(card("Unread contacts")).getByTestId("stat-value")).toHaveTextContent("3");
-    expect(within(card("Messages in")).getByTestId("stat-value")).toHaveTextContent("18");
-    expect(within(card("Messages out")).getByTestId("stat-value")).toHaveTextContent("11");
+    expect(
+      within(card("Total contacts")).getByTestId("stat-value"),
+    ).toHaveTextContent("42");
+    expect(
+      within(card("Active today")).getByTestId("stat-value"),
+    ).toHaveTextContent("7");
+    expect(
+      within(card("Unread contacts")).getByTestId("stat-value"),
+    ).toHaveTextContent("3");
+    expect(
+      within(card("Messages in")).getByTestId("stat-value"),
+    ).toHaveTextContent("18");
+    expect(
+      within(card("Messages out")).getByTestId("stat-value"),
+    ).toHaveTextContent("11");
   });
 
   /** D-027: the unit is contacts, and the label has to say so. */
@@ -147,9 +157,15 @@ describe("range toggle", () => {
     renderDashboard();
     const group = screen.getByRole("group", { name: "Summary range" });
 
-    expect(within(group).getByRole("button", { name: "Today" })).toBeInTheDocument();
-    expect(within(group).getByRole("button", { name: "7 days" })).toBeInTheDocument();
-    expect(within(group).queryByRole("button", { name: "30 days" })).not.toBeInTheDocument();
+    expect(
+      within(group).getByRole("button", { name: "Today" }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole("button", { name: "7 days" }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).queryByRole("button", { name: "30 days" }),
+    ).not.toBeInTheDocument();
   });
 
   it("reports a range change", async () => {
@@ -194,14 +210,17 @@ describe("empty data", () => {
 it("renders a day with inbound but no outbound", () => {
   renderDashboard({
     summary: summary({
-      series: [
-        { date: "2026-08-12", inbound: 4, outbound: 0 },
-      ],
+      series: [{ date: "2026-08-12", inbound: 4, outbound: 0 }],
     }),
   });
 
   const cells = within(screen.getAllByRole("row")[1]).getAllByRole("cell");
-  expect(cells.map((c) => c.textContent)).toEqual(["2026-08-12", "4", "0", "4"]);
+  expect(cells.map((c) => c.textContent)).toEqual([
+    "2026-08-12",
+    "4",
+    "0",
+    "4",
+  ]);
 });
 
 it("renders nothing but a loading line before the first response", () => {
@@ -248,11 +267,7 @@ describe("excluded by D-020", () => {
 
   it("reproduces no BARS fixture value from the design", () => {
     const { container } = render(
-      <DashboardView
-        summary={EMPTY}
-        range="today"
-        onRangeChange={jest.fn()}
-      />,
+      <DashboardView summary={EMPTY} range="today" onRangeChange={jest.fn()} />,
     );
     const totals = screen
       .getAllByTestId("chart-bar")

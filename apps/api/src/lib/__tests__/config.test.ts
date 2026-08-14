@@ -1,9 +1,8 @@
 import { ConfigurationError, readAuthConfig } from "@/lib/config";
 
 const VALID = {
-  ACCESS_CODE: "CORRECT-ACCESS-CODE",
+  ACCESS_CODE: "CORRECT-JOIN-CODE",
   SESSION_SECRET: "a-test-signing-secret-of-at-least-32-chars",
-  WEB_ORIGIN: "http://localhost:3000",
 };
 
 describe("readAuthConfig", () => {
@@ -12,19 +11,20 @@ describe("readAuthConfig", () => {
 
     expect(config.accessCode).toBe(VALID.ACCESS_CODE);
     expect(config.sessionSecret).toBe(VALID.SESSION_SECRET);
-    expect(config.allowedOrigins).toEqual(["http://localhost:3000"]);
   });
 
-  it("parses a comma-separated origin allow-list, trimming each entry", () => {
+  it("ignores WEB_ORIGIN, which D-040 retired along with cors.ts", () => {
+    // A stale value left in a deployment's environment must not resurrect anything.
     const config = readAuthConfig({
       ...VALID,
-      WEB_ORIGIN: "https://console.example.com , https://preview.example.com",
+      WEB_ORIGIN: "http://localhost:3000",
     });
 
-    expect(config.allowedOrigins).toEqual([
-      "https://console.example.com",
-      "https://preview.example.com",
-    ]);
+    expect(config).toEqual({
+      accessCode: VALID.ACCESS_CODE,
+      sessionSecret: VALID.SESSION_SECRET,
+    });
+    expect(config).not.toHaveProperty("allowedOrigins");
   });
 });
 
@@ -33,8 +33,7 @@ describe("readAuthConfig — negative cases", () => {
     ["ACCESS_CODE missing", { ...VALID, ACCESS_CODE: undefined }],
     ["ACCESS_CODE empty", { ...VALID, ACCESS_CODE: "" }],
     ["SESSION_SECRET missing", { ...VALID, SESSION_SECRET: undefined }],
-    ["WEB_ORIGIN missing", { ...VALID, WEB_ORIGIN: undefined }],
-    ["WEB_ORIGIN empty", { ...VALID, WEB_ORIGIN: "" }],
+    ["SESSION_SECRET empty", { ...VALID, SESSION_SECRET: "" }],
   ])("throws when %s", (_label, environment) => {
     expect(() => readAuthConfig(environment)).toThrow(ConfigurationError);
   });
@@ -46,7 +45,8 @@ describe("readAuthConfig — negative cases", () => {
   });
 
   it("throws when SESSION_SECRET equals ACCESS_CODE (D-008 requires distinct)", () => {
-    // If they matched, anyone holding the access code could sign their own sessions.
+    // If they matched, anyone holding the join code could mint their own service tokens —
+    // including one claiming `member: true`.
     const shared = "the-same-value-used-for-both-of-them!!";
 
     expect(() =>

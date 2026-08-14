@@ -17,11 +17,14 @@ export interface ApiErrorBody {
   };
 }
 
-/** Only the codes this task actually emits. Others belong to the tasks that emit them. */
+/** Only the codes this app actually emits. Others belong to the tasks that emit them. */
 export const ERROR_CODES = {
   badRequest: "BAD_REQUEST",
   invalidAccessCode: "INVALID_ACCESS_CODE",
   unauthorized: "UNAUTHORIZED",
+  /** D-051: authenticated with LINE, but has not passed D-036's join gate. */
+  notAMember: "NOT_A_MEMBER",
+  notFound: "NOT_FOUND",
   serverMisconfigured: "SERVER_MISCONFIGURED",
 } as const;
 

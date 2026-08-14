@@ -46,7 +46,15 @@ export function MessageBubble({
           sending ? "opacity-70" : "",
           isPlaceholder ? "italic" : "",
         ].join(" ")}
-        style={failed ? { background: "#fee2e2", borderColor: "#fecaca", color: "#b91c1c" } : undefined}
+        style={
+          failed
+            ? {
+                background: "#fee2e2",
+                borderColor: "#fecaca",
+                color: "#b91c1c",
+              }
+            : undefined
+        }
       >
         {isPlaceholder ? (
           <span data-testid="unsupported-placeholder">
@@ -57,17 +65,14 @@ export function MessageBubble({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 text-[11px] text-text-muted">
+      <div className="text-text-muted flex items-center gap-1.5 text-[11px]">
         <span>
-          {formatMessageMeta(
-            outbound ? "You" : contactName,
-            message.createdAt,
-          )}
+          {formatMessageMeta(outbound ? "You" : contactName, message.createdAt)}
         </span>
 
         {/* D-006/D-021: the design's "sent to LINE" via-badge. */}
         {message.sentVia && (
-          <span className="whitespace-nowrap rounded-[4px] border border-border-default bg-surface px-[5px] py-px font-mono text-[10px] text-[#475569]">
+          <span className="border-border-default bg-surface rounded-[4px] border px-[5px] py-px font-mono text-[10px] whitespace-nowrap text-[#475569]">
             sent to LINE
           </span>
         )}
@@ -83,7 +88,7 @@ export function MessageBubble({
               <button
                 type="button"
                 onClick={() => onRetry(message.id)}
-                className="rounded-[4px] border border-border-default bg-surface px-[5px] py-px font-mono text-[10px] text-[#475569] hover:bg-border-subtle"
+                className="border-border-default bg-surface hover:bg-border-subtle rounded-[4px] border px-[5px] py-px font-mono text-[10px] text-[#475569]"
               >
                 Retry
               </button>

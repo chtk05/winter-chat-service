@@ -25,7 +25,7 @@ export function AccessErrorCard({
   return (
     <div
       role="alert"
-      className="flex w-full max-w-[460px] flex-col gap-[18px] rounded-[14px] border border-border-default bg-surface p-8 shadow-[0_12px_40px_-16px_rgba(9,9,11,0.16)]"
+      className="border-border-default bg-surface flex w-full max-w-[460px] flex-col gap-[18px] rounded-[14px] border p-8 shadow-[0_12px_40px_-16px_rgba(9,9,11,0.16)]"
     >
       <div
         aria-hidden
@@ -35,10 +35,10 @@ export function AccessErrorCard({
       </div>
 
       <div>
-        <h2 className="text-[20px] font-semibold tracking-heading">
+        <h2 className="tracking-heading text-[20px] font-semibold">
           That access code didn&apos;t work
         </h2>
-        <p className="mt-2 text-pretty text-[14px] leading-[1.6] text-[#475569]">
+        <p className="mt-2 text-[14px] leading-[1.6] text-pretty text-[#475569]">
           {message}
         </p>
       </div>
@@ -47,13 +47,13 @@ export function AccessErrorCard({
         <button
           type="button"
           onClick={onRetry}
-          className="h-10 flex-1 basis-40 rounded-control bg-primary text-[14px] font-medium text-[#f8fafc] hover:bg-primary-hover"
+          className="rounded-control bg-primary hover:bg-primary-hover h-10 flex-1 basis-40 text-[14px] font-medium text-[#f8fafc]"
         >
           Try another code
         </button>
       </div>
 
-      <div className="font-mono text-[11px] text-text-muted">
+      <div className="text-text-muted font-mono text-[11px]">
         error {code}
         {reference ? ` · ref ${reference}` : ""}
       </div>

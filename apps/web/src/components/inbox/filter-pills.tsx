@@ -20,7 +20,11 @@ export function FilterPills({
   onChange: (next: StatusFilter) => void;
 }) {
   return (
-    <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-1.5">
+    <div
+      role="group"
+      aria-label="Filter by status"
+      className="flex flex-wrap gap-1.5"
+    >
       {STATUS_FILTERS.map((filter) => {
         const active = filter === value;
         return (
@@ -30,7 +34,7 @@ export function FilterPills({
             aria-pressed={active}
             onClick={() => onChange(filter)}
             className={[
-              "whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-medium",
+              "rounded-pill border px-2.5 py-1 text-[12px] font-medium whitespace-nowrap",
               active
                 ? "border-primary bg-primary text-[#f8fafc]"
                 : "border-border-default bg-surface text-[#475569]",

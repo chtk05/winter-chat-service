@@ -1,76 +1,163 @@
-import { fixedClock } from "@/lib/clock";
-import type { AuthConfig } from "@/lib/config";
-import { login, type AuthDependencies } from "@/lib/services/auth-service";
-import { SESSION_LIFETIME_SECONDS } from "@/lib/services/session";
+import {
+  joinWorkspace,
+  type JoinDependencies,
+  type MemberStore,
+} from "@/lib/services/auth-service";
 
-const NOW = new Date("2026-08-12T09:00:00.000Z");
-const ACCESS_CODE = "CORRECT-ACCESS-CODE";
-const SESSION_SECRET = "a-test-signing-secret-of-at-least-32-chars";
+const ACCESS_CODE = "CORRECT-JOIN-CODE";
+const LINE_USER_ID = "U8f2c000000000000000000000000004471";
 
-const CONFIG: AuthConfig = {
-  accessCode: ACCESS_CODE,
-  sessionSecret: SESSION_SECRET,
-  allowedOrigins: ["http://localhost:3000"],
-};
+function createStore(alreadyMember = false): MemberStore & {
+  calls: string[];
+} {
+  const calls: string[] = [];
+  return {
+    calls,
+    async grantMembership(lineUserId: string) {
+      calls.push(lineUserId);
+      return { alreadyMember };
+    },
+    async isMember() {
+      return alreadyMember;
+    },
+  };
+}
 
-const DEPENDENCIES: AuthDependencies = {
-  config: CONFIG,
-  clock: fixedClock(NOW),
-};
+function dependencies(store: MemberStore): JoinDependencies {
+  return { config: { accessCode: ACCESS_CODE }, store };
+}
 
-describe("login — positive path", () => {
-  it("authenticates the correct code and issues a 7-day session", async () => {
-    const result = await login({ code: ACCESS_CODE }, DEPENDENCIES);
+describe("joinWorkspace — positive cases (D-036, D-038)", () => {
+  it("grants membership for the correct code", async () => {
+    const store = createStore();
 
-    expect(result).toMatchObject({ outcome: "authenticated" });
-    if (result.outcome !== "authenticated") throw new Error("unreachable");
-    expect(result.expiresAt.getTime() - NOW.getTime()).toBe(
-      SESSION_LIFETIME_SECONDS * 1000,
-    );
+    await expect(
+      joinWorkspace(
+        { code: ACCESS_CODE, lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
+    ).resolves.toEqual({ outcome: "joined", alreadyMember: false });
+
+    expect(store.calls).toEqual([LINE_USER_ID]);
   });
 
-  it("accepts a code with surrounding whitespace", async () => {
-    const result = await login({ code: `  ${ACCESS_CODE}  ` }, DEPENDENCIES);
+  it("trims the submitted code before comparing", async () => {
+    const store = createStore();
 
-    expect(result.outcome).toBe("authenticated");
+    await expect(
+      joinWorkspace(
+        { code: `  ${ACCESS_CODE}  `, lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
+    ).resolves.toMatchObject({ outcome: "joined" });
+  });
+
+  it("is idempotent — a second join by the same user still succeeds", async () => {
+    const store = createStore(true);
+
+    await expect(
+      joinWorkspace(
+        { code: ACCESS_CODE, lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
+    ).resolves.toEqual({ outcome: "joined", alreadyMember: true });
+  });
+
+  it("grants membership to the subject from the token, never one from the body", async () => {
+    const store = createStore();
+
+    await joinWorkspace(
+      // A body-supplied id must not be honoured: it would let any authenticated caller
+      // grant membership to someone else's LINE account.
+      {
+        code: ACCESS_CODE,
+        lineUserId: LINE_USER_ID,
+        ...({ sub: "Uattacker" } as object),
+      },
+      dependencies(store),
+    );
+
+    expect(store.calls).toEqual([LINE_USER_ID]);
   });
 });
 
-describe("login — negative paths", () => {
-  it("rejects a wrong code with 'rejected'", async () => {
-    const result = await login({ code: "NOPE" }, DEPENDENCIES);
+describe("joinWorkspace — negative cases required by T-004", () => {
+  it("rejects a wrong code without touching the store", async () => {
+    const store = createStore();
 
-    expect(result).toEqual({ outcome: "rejected" });
+    await expect(
+      joinWorkspace(
+        { code: "WRONG-CODE", lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
+    ).resolves.toEqual({ outcome: "rejected" });
+
+    expect(store.calls).toEqual([]);
   });
 
-  it("treats an empty code as an invalid request", async () => {
-    const result = await login({ code: "" }, DEPENDENCIES);
+  it("treats an empty code as an invalid request, not a rejection", async () => {
+    // 400, not 401 — the distinction openapi.yaml draws for the code check.
+    const store = createStore();
 
-    expect(result).toEqual({ outcome: "invalid-request" });
+    await expect(
+      joinWorkspace(
+        { code: "", lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
+    ).resolves.toEqual({ outcome: "invalid-request" });
+
+    expect(store.calls).toEqual([]);
   });
 
   it("treats a whitespace-only code as an invalid request", async () => {
-    await expect(login({ code: "   " }, DEPENDENCIES)).resolves.toEqual({
-      outcome: "invalid-request",
-    });
+    const store = createStore();
+
+    await expect(
+      joinWorkspace(
+        { code: "   ", lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
+    ).resolves.toEqual({ outcome: "invalid-request" });
   });
 
   it.each([
-    ["a missing code", undefined],
-    ["a null code", null],
-    ["a numeric code", 12345],
-    ["an object code", { code: ACCESS_CODE }],
-    ["an array code", [ACCESS_CODE]],
-    ["a boolean code", true],
-  ])("rejects %s as an invalid request", async (_label, code) => {
-    await expect(login({ code }, DEPENDENCIES)).resolves.toEqual({
-      outcome: "invalid-request",
-    });
+    ["undefined", undefined],
+    ["null", null],
+    ["a number", 12345],
+    ["a boolean", true],
+    ["an object", { code: "CORRECT-JOIN-CODE" }],
+    ["an array", ["CORRECT-JOIN-CODE"]],
+  ])("treats a code that is %s as an invalid request", async (_label, code) => {
+    const store = createStore();
+
+    await expect(
+      joinWorkspace({ code, lineUserId: LINE_USER_ID }, dependencies(store)),
+    ).resolves.toEqual({ outcome: "invalid-request" });
+
+    expect(store.calls).toEqual([]);
   });
 
-  it("rejects a code longer than the contract's 128-character bound", async () => {
+  it("rejects a code longer than the contract's 128 characters", async () => {
+    const store = createStore();
+
     await expect(
-      login({ code: "X".repeat(129) }, DEPENDENCIES),
+      joinWorkspace(
+        { code: "a".repeat(129), lineUserId: LINE_USER_ID },
+        dependencies(store),
+      ),
     ).resolves.toEqual({ outcome: "invalid-request" });
+  });
+
+  it("never succeeds when the configured code is empty", async () => {
+    // Otherwise a server missing ACCESS_CODE would admit everyone. config.ts refuses to
+    // boot in that state, but this use case must not depend on its caller for that.
+    const store = createStore();
+
+    await expect(
+      joinWorkspace(
+        { code: "anything", lineUserId: LINE_USER_ID },
+        { config: { accessCode: "" }, store },
+      ),
+    ).resolves.toEqual({ outcome: "rejected" });
   });
 });

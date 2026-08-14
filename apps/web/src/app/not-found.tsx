@@ -12,22 +12,22 @@ import { BrandMark } from "@/components/shell/brand-mark";
  */
 export default function NotFound() {
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-surface">
-      <div className="flex flex-none items-center gap-2.5 border-b border-border-default px-6 py-[18px]">
+    <div className="bg-surface flex min-h-full flex-1 flex-col">
+      <div className="border-border-default flex flex-none items-center gap-2.5 border-b px-6 py-[18px]">
         <BrandMark />
       </div>
 
       <div className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="flex w-full max-w-[460px] flex-col items-center gap-5 text-center">
-          <div className="font-mono text-[72px] font-medium leading-none tracking-[-0.04em] text-border-default">
+          <div className="text-border-default font-mono text-[72px] leading-none font-medium tracking-[-0.04em]">
             404
           </div>
 
           <div>
-            <h1 className="text-[22px] font-semibold tracking-heading">
+            <h1 className="tracking-heading text-[22px] font-semibold">
               This page isn&apos;t here
             </h1>
-            <p className="mt-2 text-[14px] leading-[1.6] text-[#475569] text-pretty">
+            <p className="mt-2 text-[14px] leading-[1.6] text-pretty text-[#475569]">
               The conversation may have been closed and archived, or the link
               was mistyped. Nothing was lost — every thread is still in the
               inbox.
@@ -37,19 +37,19 @@ export default function NotFound() {
           <div className="flex flex-wrap justify-center gap-2.5">
             <Link
               href="/inbox"
-              className="flex h-10 items-center rounded-control bg-primary px-[18px] text-[14px] font-medium text-[#f8fafc] no-underline hover:bg-primary-hover"
+              className="rounded-control bg-primary hover:bg-primary-hover flex h-10 items-center px-[18px] text-[14px] font-medium text-[#f8fafc] no-underline"
             >
               Back to inbox
             </Link>
             <Link
               href="/login"
-              className="flex h-10 items-center rounded-control border border-border-default bg-surface px-[18px] text-[14px] font-medium text-text-primary no-underline hover:bg-border-subtle"
+              className="rounded-control border-border-default bg-surface text-text-primary hover:bg-border-subtle flex h-10 items-center border px-[18px] text-[14px] font-medium no-underline"
             >
               Go to sign in
             </Link>
           </div>
 
-          <div className="font-mono text-[11px] text-text-muted">
+          <div className="text-text-muted font-mono text-[11px]">
             error PAGE_NOT_FOUND
           </div>
         </div>

@@ -1,9 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { signOut } from "next-auth/react";
 
 import { TopBar } from "@/components/shell/top-bar";
-import { logout } from "@/lib/api/client";
 
 /**
  * F-004 application shell. The design's `startScreen` prop and `authTabs`
@@ -15,17 +14,9 @@ export default function ConsoleLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
-
-  const handleSignOut = async () => {
-    try {
-      await logout();
-    } finally {
-      // D-008: logout clears the cookie. Route to login either way — a failed
-      // clear must not strand the admin inside the console.
-      router.push("/login");
-    }
-  };
+  // D-039: NextAuth owns sign-out now. `apps/api` sets no cookies, so there is nothing
+  // there to clear — the old `POST /auth/logout` call was removed with the route.
+  const handleSignOut = () => void signOut({ redirectTo: "/login" });
 
   return (
     <div className="flex h-screen flex-col">

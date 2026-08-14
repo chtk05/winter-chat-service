@@ -25,28 +25,28 @@ const CHANNEL_CHIPS = [
 
 export function MarketingPanel() {
   return (
-    <div className="flex min-w-[340px] flex-1 flex-col justify-between gap-8 border-r border-border-default bg-active-row p-10 max-lg:hidden">
+    <div className="border-border-default bg-active-row flex min-w-[340px] flex-1 flex-col justify-between gap-8 border-r p-10 max-lg:hidden">
       <BrandMark />
 
       <div className="flex max-w-[460px] flex-col gap-[26px]">
-        <div className="text-balance text-[36px] font-semibold leading-[1.12] tracking-heading-lg">
+        <div className="tracking-heading-lg text-[36px] leading-[1.12] font-semibold text-balance">
           Every channel your customers use,{" "}
           <span className="text-accent">one shared inbox</span>.
         </div>
 
         <div
           aria-hidden
-          className="flex flex-col gap-3 rounded-2xl border border-border-default bg-surface p-4 shadow-[0_18px_40px_-20px_rgba(37,99,235,0.45)]"
+          className="border-border-default bg-surface flex flex-col gap-3 rounded-2xl border p-4 shadow-[0_18px_40px_-20px_rgba(37,99,235,0.45)]"
         >
-          <div className="flex items-center gap-2.5 border-b border-border-subtle pb-3">
-            <div className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-primary text-[11px] font-medium text-white">
+          <div className="border-border-subtle flex items-center gap-2.5 border-b pb-3">
+            <div className="bg-primary flex h-[30px] w-[30px] items-center justify-center rounded-full text-[11px] font-medium text-white">
               PS
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[13px] font-semibold">Ploy Sirichai</div>
-              <div className="text-[11px] text-text-muted">Open</div>
+              <div className="text-text-muted text-[11px]">Open</div>
             </div>
-            <span className="flex h-5 w-5 items-center justify-center rounded-chip bg-line text-[7px] font-bold text-white">
+            <span className="rounded-chip bg-line flex h-5 w-5 items-center justify-center text-[7px] font-bold text-white">
               LINE
             </span>
           </div>
@@ -56,34 +56,34 @@ export function MarketingPanel() {
               key={message.text}
               className={
                 message.from === "us"
-                  ? "max-w-[82%] self-end rounded-[14px_14px_4px_14px] bg-primary px-[13px] py-[9px] text-[13px] leading-[1.5] text-white"
-                  : "max-w-[82%] self-start rounded-[4px_14px_14px_14px] bg-border-subtle px-[13px] py-[9px] text-[13px] leading-[1.5]"
+                  ? "bg-primary max-w-[82%] self-end rounded-[14px_14px_4px_14px] px-[13px] py-[9px] text-[13px] leading-[1.5] text-white"
+                  : "bg-border-subtle max-w-[82%] self-start rounded-[4px_14px_14px_14px] px-[13px] py-[9px] text-[13px] leading-[1.5]"
               }
             >
               {message.text}
             </div>
           ))}
 
-          <div className="flex items-center gap-2 border-t border-border-subtle pt-2.5">
-            <div className="flex h-[30px] flex-1 items-center rounded-control border border-border-default bg-bg px-2.5 text-[12px] text-text-muted">
+          <div className="border-border-subtle flex items-center gap-2 border-t pt-2.5">
+            <div className="rounded-control border-border-default bg-bg text-text-muted flex h-[30px] flex-1 items-center border px-2.5 text-[12px]">
               Reply on LINE…
             </div>
-            <div className="flex h-[30px] w-[30px] items-center justify-center rounded-control bg-accent text-[13px] text-white">
+            <div className="rounded-control bg-accent flex h-[30px] w-[30px] items-center justify-center text-[13px] text-white">
               ↑
             </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <div className="text-[12px] text-text-secondary">Channels</div>
+          <div className="text-text-secondary text-[12px]">Channels</div>
           <div className="flex flex-wrap gap-2">
             {CHANNEL_CHIPS.map((chip) => (
               <span
                 key={chip.label}
                 className={
                   chip.live
-                    ? "flex items-center gap-[7px] rounded-pill border border-border-default bg-surface px-[11px] py-[5px] text-[12px] font-medium text-text-primary"
-                    : "flex items-center gap-[7px] rounded-pill border border-dashed border-[#cbd5e1] bg-surface px-[11px] py-[5px] text-[12px] text-text-secondary"
+                    ? "rounded-pill border-border-default bg-surface text-text-primary flex items-center gap-[7px] border px-[11px] py-[5px] text-[12px] font-medium"
+                    : "rounded-pill bg-surface text-text-secondary flex items-center gap-[7px] border border-dashed border-[#cbd5e1] px-[11px] py-[5px] text-[12px]"
                 }
               >
                 <span
@@ -103,7 +103,7 @@ export function MarketingPanel() {
         The design reads "Invite-only · no public sign-ups". D-017 removes the
         invite-code model; D-002 keeps the "no public sign-ups" half true.
       */}
-      <div className="text-[12px] text-text-secondary">
+      <div className="text-text-secondary text-[12px]">
         Access-code only · no public sign-ups
       </div>
     </div>

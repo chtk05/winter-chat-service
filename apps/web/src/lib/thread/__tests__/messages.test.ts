@@ -62,7 +62,10 @@ describe("upsertMessage", () => {
     const older = message({ id: "m1", createdAt: "2026-08-12T09:00:00+07:00" });
     const newer = message({ id: "m2", createdAt: "2026-08-12T09:05:00+07:00" });
 
-    expect(upsertMessage([newer], older).map((m) => m.id)).toEqual(["m1", "m2"]);
+    expect(upsertMessage([newer], older).map((m) => m.id)).toEqual([
+      "m1",
+      "m2",
+    ]);
   });
 
   it("reconciles an optimistic bubble in place, by clientId", () => {
@@ -150,8 +153,16 @@ describe("mergeOlderPage", () => {
 
 describe("markFailed", () => {
   it("fails only the bubble with the matching clientId", () => {
-    const a = message({ id: "uuid-1", clientId: "uuid-1", direction: "outbound" });
-    const b = message({ id: "uuid-2", clientId: "uuid-2", direction: "outbound" });
+    const a = message({
+      id: "uuid-1",
+      clientId: "uuid-1",
+      direction: "outbound",
+    });
+    const b = message({
+      id: "uuid-2",
+      clientId: "uuid-2",
+      direction: "outbound",
+    });
 
     const result = markFailed([a, b], "uuid-1", "Not delivered");
 
@@ -173,9 +184,35 @@ describe("isMessagePayload", () => {
     ["a string", "message"],
     ["a number", 7],
     ["an empty object", {}],
-    ["a missing id", { conversationId: "c1", direction: "inbound", messageType: "text", createdAt: "x" }],
-    ["a bad direction", { id: "m1", conversationId: "c1", direction: "sideways", messageType: "text", createdAt: "x" }],
-    ["a numeric id", { id: 1, conversationId: "c1", direction: "inbound", messageType: "text", createdAt: "x" }],
+    [
+      "a missing id",
+      {
+        conversationId: "c1",
+        direction: "inbound",
+        messageType: "text",
+        createdAt: "x",
+      },
+    ],
+    [
+      "a bad direction",
+      {
+        id: "m1",
+        conversationId: "c1",
+        direction: "sideways",
+        messageType: "text",
+        createdAt: "x",
+      },
+    ],
+    [
+      "a numeric id",
+      {
+        id: 1,
+        conversationId: "c1",
+        direction: "inbound",
+        messageType: "text",
+        createdAt: "x",
+      },
+    ],
   ])("rejects %s", (_label, value) => {
     expect(isMessagePayload(value)).toBe(false);
   });
@@ -204,7 +241,11 @@ describe("applyRealtimeChange", () => {
       sentVia: "reply",
     });
 
-    const result = applyRealtimeChange([existing], change("UPDATE", update), "c1");
+    const result = applyRealtimeChange(
+      [existing],
+      change("UPDATE", update),
+      "c1",
+    );
 
     expect(result).toHaveLength(1);
     expect(result[0].deliveryStatus).toBe("sent");
@@ -253,14 +294,21 @@ describe("applyRealtimeChange", () => {
   it("ignores DELETE events, which the thread does not model", () => {
     const existing = [message()];
     expect(
-      applyRealtimeChange(existing, { eventType: "DELETE", old: message() }, "c1"),
+      applyRealtimeChange(
+        existing,
+        { eventType: "DELETE", old: message() },
+        "c1",
+      ),
     ).toBe(existing);
   });
 
   // Negative case: out-of-order realtime arrival still sorts correctly.
   it("keeps timestamp order when payloads arrive out of order", () => {
     const later = message({ id: "m2", createdAt: "2026-08-12T09:05:00+07:00" });
-    const earlier = message({ id: "m1", createdAt: "2026-08-12T09:00:00+07:00" });
+    const earlier = message({
+      id: "m1",
+      createdAt: "2026-08-12T09:00:00+07:00",
+    });
 
     let state = applyRealtimeChange([], change("INSERT", later), "c1");
     state = applyRealtimeChange(state, change("INSERT", earlier), "c1");

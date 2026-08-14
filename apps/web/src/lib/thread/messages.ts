@@ -40,8 +40,7 @@ export function optimisticMessage({
 
 function sortByCreatedAt(messages: Message[]): Message[] {
   return [...messages].sort(
-    (a, b) =>
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
   );
 }
 
@@ -52,7 +51,10 @@ function sortByCreatedAt(messages: Message[]): Message[] {
  * bubble **in place** rather than appearing beside it, then by `id` so a
  * redelivered realtime payload updates rather than duplicates.
  */
-export function upsertMessage(messages: Message[], incoming: Message): Message[] {
+export function upsertMessage(
+  messages: Message[],
+  incoming: Message,
+): Message[] {
   const index = messages.findIndex(
     (existing) =>
       (incoming.clientId != null && existing.clientId === incoming.clientId) ||

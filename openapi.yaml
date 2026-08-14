@@ -1,10 +1,17 @@
 openapi: 3.1.0
 
-# WinterChat HTTP API — PROPOSED, pending acceptance (see DECISIONS.md D-021).
+# WinterChat HTTP API — ACCEPTED by D-024 (2026-08-12). D-021 records the surface.
 #
 # Every path below traces to a recorded feature or decision. Anything that would
 # require an unrecorded choice is marked `x-pending-decision` and left unspecified
-# rather than invented (CLAUDE.md §3.2).
+# rather than invented (CLAUDE.md §3.2). AS OF 2026-08-13 THERE ARE NONE LEFT:
+# OQ-15 → D-027, OQ-16 → D-026, OQ-17 → D-047, OQ-19 → D-048.
+#
+# AMENDED 2026-08-13 (session 8) for the replaced auth model: D-039 removed
+# /auth/login, /auth/logout and /auth/session; D-036 + D-046 added /auth/join;
+# D-041 replaced the `wc_session` cookie with a Bearer service token; D-051 added
+# 403 NOT_A_MEMBER. Amendments are made under D-024's acceptance, the same way
+# D-029 amended the Set-Cookie note.
 #
 # Not covered here: inbound realtime delivery to the browser, which is a Supabase
 # Realtime subscription, not an HTTP endpoint (D-005).
@@ -14,7 +21,14 @@ info:
   version: 0.1.0-draft
   description: |
     Admin console for a LINE Official Account: read inbound messages, reply, and view
-    a stats summary. Single shared access code, no per-user accounts (D-002, D-009).
+    a stats summary.
+
+    AUTHENTICATION (D-034 … D-051, replacing D-002/D-009's shared access code):
+    sign-in is two gates — LINE Login, then a shared join code (D-036). NextAuth runs in
+    `apps/web`; this API is a STATELESS RESOURCE SERVER that sets no cookies at all
+    (D-039). `apps/web` proxies to it server-side at `/gateway/*` and the browser never
+    calls it directly (D-040, D-042), attaching a short-lived HS256 JWT as
+    `Authorization: Bearer` (D-041, 120s per D-049).
 
     All timestamps are RFC 3339 UTC. Calendar-day boundaries for dashboard windows are
     Asia/Bangkok (D-014).
@@ -35,19 +49,33 @@ tags:
     description: F-003 summary
 
 security:
-  - sessionCookie: []
+  - serviceToken: []
 
 paths:
-  /auth/login:
+  # D-039 REMOVED /auth/login, /auth/logout and /auth/session from this API. NextAuth owns
+  # them in apps/web under its own /api/auth/* basePath (D-043); this server issues no
+  # session and clears none. What remains of auth here is the join gate below.
+
+  /auth/join:
     post:
       tags: [auth]
-      summary: Exchange the workspace access code for a session
+      summary: Pass D-036's join gate and become a member
       description: |
-        D-002, D-008, D-017. On success sets a signed httpOnly secure cookie with
-        a 7-day lifetime. The code itself does not expire and is not single-use.
-        D-032 (2026-08-13) removed the per-IP rate limit D-011 originally put here —
-        this route no longer answers 429.
-      security: []
+        D-036's second gate. The caller has already proved WHO they are with LINE Login;
+        this decides WHETHER they are allowed in, and records it on their `User` row
+        (D-044). The code is compared in constant time against `ACCESS_CODE` (D-038); it
+        does not expire and is not single-use.
+
+        THE ONE MEMBERS-OPTIONAL ROUTE (D-046): the caller's token legitimately carries
+        `member: false` here — every other route requires `member: true`. The token is
+        still required and still verified; the subject joined is the token's `sub`
+        (D-050), never a value from the body.
+
+        Idempotent: a second join by the same user also answers 204.
+
+        D-032 removed the per-IP rate limit D-011 once put on the code check, so this
+        route does not answer 429. The gate sitting behind LINE Login raises the cost of
+        attacking it but does not restore that protection.
       requestBody:
         required: true
         content:
@@ -63,49 +91,47 @@ paths:
                   description: Compared against the ACCESS_CODE environment variable.
       responses:
         '204':
-          description: Authenticated. Session cookie set.
-          headers:
-            Set-Cookie:
-              schema: { type: string }
-              # D-029 supersedes the original `SameSite=Lax` here. D-025 made apps/api a
-              # second origin, so a Lax cookie would never be sent on the console's
-              # cross-origin fetch. Paired with a credentialed CORS allow-list.
-              description: Signed, httpOnly, Secure, SameSite=None, Max-Age 604800.
+          description: |
+            Joined. Membership persisted. NO Set-Cookie — this server sets no cookies
+            anywhere (D-039).
         '400':
           $ref: '#/components/responses/BadRequest'
-          description: Missing or empty code.
+          description: Missing, empty, or over-long code.
         '401':
-          description: Incorrect code. Response body is identical for every wrong code.
+          description: |
+            Either no valid token, or an incorrect code. The body is identical for every
+            wrong code.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
-              example: { error: { code: INVALID_ACCESS_CODE, message: That access code didn't work, ref: 4471-A } }
+              example:
+                { error: { code: INVALID_ACCESS_CODE, message: That access code didn't work } }
 
-  /auth/logout:
-    post:
-      tags: [auth]
-      summary: Clear the session
-      description: D-008.
-      responses:
-        '204':
-          description: Cookie cleared. Idempotent — succeeds with no session present.
-
-  /auth/session:
+  /auth/membership:
     get:
       tags: [auth]
-      summary: Check whether the caller holds a valid session
-      description: Used by middleware and the client shell to route to login.
+      summary: Whether the caller has passed the join gate
+      description: |
+        D-054. The authoritative membership read for the token's `sub` (D-050).
+
+        This exists because `apps/web`'s Auth.js `jwt` callback must NOT trust its own
+        update payload: `trigger: "update"` fires for a browser calling
+        `useSession().update()`, so believing it would let any LINE-authenticated user
+        grant themselves membership without the join code. `apps/web` calls this instead,
+        once, immediately after a join — never per request.
+
+        MEMBERS-OPTIONAL, like `/auth/join`: the only callers that need it hold a token
+        whose `member` claim is `false`. It grants nothing and is safe in that state.
       responses:
         '200':
-          description: Session valid.
+          description: The caller's membership, read from the database.
           content:
             application/json:
               schema:
                 type: object
-                required: [authenticated, expiresAt]
+                required: [member]
                 properties:
-                  authenticated: { type: boolean, const: true }
-                  expiresAt: { type: string, format: date-time }
+                  member: { type: boolean }
         '401':
           $ref: '#/components/responses/Unauthorized'
 
@@ -131,8 +157,9 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, minimum: 1, maximum: 100 }
-          x-pending-decision: OQ-16
-          description: Default page size not yet decided.
+          description: |
+            Page size. Server default 30. D-048: a page is one row PER CONTACT — that
+            contact's most recent conversation — not one row per conversation.
       responses:
         '200':
           description: A page of conversations.
@@ -157,6 +184,8 @@ paths:
                       open: { type: integer }
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /conversations/{conversationId}:
     parameters:
@@ -171,6 +200,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Conversation' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     patch:
       tags: [conversations]
@@ -193,6 +223,7 @@ paths:
               schema: { $ref: '#/components/schemas/Conversation' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /conversations/{conversationId}/read:
@@ -207,6 +238,7 @@ paths:
       responses:
         '204': { description: Marked read. }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /conversations/{conversationId}/messages:
@@ -223,9 +255,11 @@ paths:
           description: Cursor — return messages older than this.
         - name: limit
           in: query
-          schema: { type: integer, minimum: 1, maximum: 200 }
-          x-pending-decision: OQ-16
-          description: Initial load count and page size not yet decided.
+          schema: { type: integer, minimum: 1, maximum: 50 }
+          description: |
+            D-026: 30 when omitted (the initial load), 50 per page thereafter. A limit
+            above 50 is REJECTED with 400 — never silently clamped, or the client would
+            believe it received a full page when it did not.
       responses:
         '200':
           description: A page of messages.
@@ -241,6 +275,7 @@ paths:
                   hasMore: { type: boolean }
                   nextCursor: { type: [string, 'null'] }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [messages]
@@ -288,6 +323,7 @@ paths:
           $ref: '#/components/responses/BadRequest'
           description: Empty text, oversized text, or missing clientId.
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
 
   /messages/{messageId}/retry:
@@ -307,6 +343,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Message' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
           description: Message is not in `failed`, or is inbound.
@@ -371,14 +408,21 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/DashboardSummary' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
 components:
   securitySchemes:
-    sessionCookie:
-      type: apiKey
-      in: cookie
-      name: wc_session
-      description: Signed httpOnly session cookie set by POST /auth/login (D-008).
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        D-041: a short-lived JWT minted per call by `apps/web`'s `/gateway/*` proxy,
+        signed HS256 over the shared `SESSION_SECRET` and verified here with `jose`.
+        Claims are exactly `sub` (the caller's LINE user id, D-050), `member` (boolean,
+        D-036) and `exp` (120s, D-049). There is no role claim — D-045 has no roles.
+
+        This replaces the `wc_session` cookie of D-008/D-029. This server sets no cookies.
 
   parameters:
     ConversationId:
@@ -394,7 +438,18 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     Unauthorized:
-      description: No valid session cookie.
+      description: |
+        No Bearer token, or one that does not verify — malformed, bad signature, expired,
+        or signed with a secret this deployment does not hold (D-041).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: |
+        D-051. Authenticated with LINE, but has not passed D-036's join gate — `code` is
+        `NOT_A_MEMBER`. Distinct from 401 on purpose: signing in again would succeed and
+        still not grant membership, so the client must be sent to the join screen rather
+        than back to sign-in.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -428,8 +483,12 @@ components:
     ConversationStatus:
       type: string
       enum: [Open, Pending, Closed]
-      description: D-019.
-      x-pending-decision: OQ-17
+      description: |
+        D-019. D-047 fixes the server-side lifecycle: a conversation is created `Open` on
+        a contact's first inbound message, and an inbound message on a `Closed`
+        conversation REOPENS THAT SAME CONVERSATION as `Pending`. `Closed` is therefore
+        not terminal, and `Pending` means "was finished, the contact came back". Every
+        other transition is the admin's explicit act via PATCH.
 
     DeliveryStatus:
       type: string
@@ -543,8 +602,10 @@ components:
         unread:
           type: integer
           minimum: 0
-          x-pending-decision: OQ-15
-          description: Unit — unread contacts or unread messages — not yet decided.
+          description: |
+            D-027: the count of CONTACTS holding at least one unread inbound message —
+            not a message count. T-019 labels the card "Unread contacts" so the unit
+            cannot be misread.
         messages:
           type: object
           required: [inbound, outbound]
@@ -574,9 +635,12 @@ components:
               at: { type: string, format: date-time }
 
 # Deliberately absent, and why:
-#   /contacts        — the conversation list is the contact list (F-002 item 1); a
-#                      separate resource would only be needed if a contact could hold
-#                      more than one conversation. See OQ-19.
+#   /contacts        — the conversation list is the contact list (F-002 item 1).
+#                      OQ-19 is now answered by D-048: the SCHEMA permits a contact to
+#                      hold several conversations, but the list returns one row per
+#                      contact and nothing recorded creates a second conversation, so
+#                      this resource is still not needed. Adding it would be inventing a
+#                      surface no feature asks for (§3.2).
 #   /channels        — Facebook/WhatsApp/Web widget are inert chrome (D-018).
 #   /tags, /notes,
 #   /assignments     — out of scope (D-019).
