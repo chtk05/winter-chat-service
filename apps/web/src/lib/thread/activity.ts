@@ -10,16 +10,6 @@ export interface NewActivity {
   isNewConversation: boolean;
 }
 
-/**
- * Pure diff between a poll's previous known-state snapshot and its freshly
- * fetched page — this is what decides which conversations deserve a toast, kept
- * free of `setInterval`/`fetch` so the decision itself is unit testable without
- * fake timers or a network double.
- *
- * A toast fires only for the TRANSITION into unread — a conversation already
- * unread on the last poll must not re-toast every tick, and the conversation
- * currently open must never toast (the admin is already looking at it).
- */
 export function detectNewActivity(
   previous: ReadonlyMap<string, KnownConversationState>,
   items: readonly ConversationSummary[],
