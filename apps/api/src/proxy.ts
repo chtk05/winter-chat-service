@@ -12,7 +12,7 @@ const MEMBERS_OPTIONAL_PATHS: readonly string[] = [
   "/api/auth/membership",
 ];
 
-export async function middleware(request: NextRequest): Promise<NextResponse> {
+export async function proxy(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
 
   if (UNAUTHENTICATED_PATHS.includes(path)) {
@@ -22,7 +22,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const config = safelyReadConfig();
 
   if (!config) {
-    console.error("[middleware] configuration error: refusing all requests");
+    console.error("[proxy] configuration error: refusing all requests");
     return errorResponse(
       500,
       ERROR_CODES.serverMisconfigured,

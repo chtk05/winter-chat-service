@@ -55,7 +55,6 @@ jobs:
           ${{ github.event_name == 'push' && '--prod' || '' }}
           --token=${{ secrets.VERCEL_TOKEN }}
 
-
   deploy-web:
     name: Deploy apps/web
     needs: verify
