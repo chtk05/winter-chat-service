@@ -14,9 +14,13 @@ import type {
  * D-025 made `apps/api` a second origin, and recorded that frontend fetches go
  * through a single configured base URL so that OQ-28 (cookie strategy) and the
  * deployment topology stay a one-line change. Do not hardcode a path anywhere else.
+ *
+ * D-030: `openapi.yaml` declares `servers: [{ url: /api }]`, so every path below is
+ * served under `/api` and the prefix belongs here rather than at each call site.
  */
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
+export const API_BASE_URL = `${
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001"
+}/api`;
 
 /** D-026: initial thread load. */
 export const INITIAL_MESSAGE_LIMIT = 30;
@@ -93,11 +97,13 @@ export function logout(): Promise<void> {
 
 /* --------------------------------------------------------- conversations --- */
 
-export function listConversations(params: {
-  status?: ConversationStatus;
-  search?: string;
-  cursor?: string;
-} = {}): Promise<ConversationListResponse> {
+export function listConversations(
+  params: {
+    status?: ConversationStatus;
+    search?: string;
+    cursor?: string;
+  } = {},
+): Promise<ConversationListResponse> {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   // The contract treats an empty search string as absent.

@@ -2,8 +2,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// D-031: connection URLs moved to prisma.config.ts — Prisma 7 no longer accepts
+// `url`/`directUrl` here.
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
+
+// D-032: the LoginAttempt model (D-028) is removed along with per-IP login rate
+// limiting (D-011, superseded). No model is currently defined — the Contact /
+// Conversation / Message / ReplyToken / WebhookEvent models belong to T-003, still
+// blocked on OQ-17 and OQ-19.
