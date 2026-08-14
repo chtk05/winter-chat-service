@@ -1,130 +1,135 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
+/*
+ * D-015 token table → CSS custom properties.
+ * Mirrors src/lib/design-tokens.ts exactly; that module is the source of truth
+ * and a unit test asserts these two agree.
+ *
+ * The design is light-only. It records no dark palette, so none is invented
+ * (§3.2) — the stock shadcn `.dark` block that shipped with the scaffold is
+ * deliberately removed rather than left as dead, untested theme surface.
+ */
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --wc-bg: #f8fafc;
+  --wc-surface: #ffffff;
+
+  --wc-text-primary: #0f172a;
+  --wc-text-secondary: #64748b;
+  --wc-text-muted: #94a3b8;
+
+  --wc-border: #e2e8f0;
+  --wc-border-subtle: #f1f5f9;
+
+  --wc-primary: #2563eb;
+  --wc-primary-hover: #1d4ed8;
+
+  --wc-accent: #db2777;
+  --wc-active-row: #eef2ff;
+  --wc-line: #06c755;
+
+  --wc-status-open-bg: #dcfce7;
+  --wc-status-open-fg: #15803d;
+  --wc-status-pending-bg: #fef3c7;
+  --wc-status-pending-fg: #854d0e;
+  --wc-status-closed-bg: #fee2e2;
+  --wc-status-closed-fg: #b91c1c;
+
+  --wc-radius-chip: 6px;
+  --wc-radius-control: 8px;
+  --wc-radius-card: 12px;
+  --wc-radius-pill: 999px;
+  --wc-radius-bubble: 16px;
+  --wc-radius-bubble-tail: 4px;
+
+  --wc-tracking-body: -0.01em;
+  --wc-tracking-heading: -0.02em;
+  --wc-tracking-heading-lg: -0.03em;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+@theme inline {
+  --color-bg: var(--wc-bg);
+  --color-surface: var(--wc-surface);
+
+  --color-text-primary: var(--wc-text-primary);
+  --color-text-secondary: var(--wc-text-secondary);
+  --color-text-muted: var(--wc-text-muted);
+
+  --color-border-default: var(--wc-border);
+  --color-border-subtle: var(--wc-border-subtle);
+
+  --color-primary: var(--wc-primary);
+  --color-primary-hover: var(--wc-primary-hover);
+
+  --color-accent: var(--wc-accent);
+  --color-active-row: var(--wc-active-row);
+  --color-line: var(--wc-line);
+
+  --color-status-open-bg: var(--wc-status-open-bg);
+  --color-status-open-fg: var(--wc-status-open-fg);
+  --color-status-pending-bg: var(--wc-status-pending-bg);
+  --color-status-pending-fg: var(--wc-status-pending-fg);
+  --color-status-closed-bg: var(--wc-status-closed-bg);
+  --color-status-closed-fg: var(--wc-status-closed-fg);
+
+  --radius-chip: var(--wc-radius-chip);
+  --radius-control: var(--wc-radius-control);
+  --radius-card: var(--wc-radius-card);
+  --radius-pill: var(--wc-radius-pill);
+  --radius-bubble: var(--wc-radius-bubble);
+
+  --tracking-body: var(--wc-tracking-body);
+  --tracking-heading: var(--wc-tracking-heading);
+  --tracking-heading-lg: var(--wc-tracking-heading-lg);
+
+  --font-sans: var(--font-geist-sans), Helvetica, sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
-    @apply font-sans;
+    height: 100%;
   }
+
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--wc-bg);
+    color: var(--wc-text-primary);
+    font-family: var(--font-geist-sans), Helvetica, sans-serif;
+    letter-spacing: var(--wc-tracking-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  a {
+    color: var(--wc-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    color: #475569;
+  }
+
+  input,
+  textarea,
+  button,
+  select {
+    font: inherit;
+  }
+}
+
+/* The design's bubble geometry: 16px all round, 4px on the tail corner. */
+.wc-bubble-inbound {
+  border-radius: var(--wc-radius-bubble-tail) var(--wc-radius-bubble)
+    var(--wc-radius-bubble) var(--wc-radius-bubble);
+}
+
+.wc-bubble-outbound {
+  border-radius: var(--wc-radius-bubble) var(--wc-radius-bubble)
+    var(--wc-radius-bubble-tail) var(--wc-radius-bubble);
 }
