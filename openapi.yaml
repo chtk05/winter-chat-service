@@ -1,21 +1,5 @@
 openapi: 3.1.0
 
-# WinterChat HTTP API — ACCEPTED by D-024 (2026-08-12). D-021 records the surface.
-#
-# Every path below traces to a recorded feature or decision. Anything that would
-# require an unrecorded choice is marked `x-pending-decision` and left unspecified
-# rather than invented (CLAUDE.md §3.2). AS OF 2026-08-13 THERE ARE NONE LEFT:
-# OQ-15 → D-027, OQ-16 → D-026, OQ-17 → D-047, OQ-19 → D-048.
-#
-# AMENDED 2026-08-13 (session 8) for the replaced auth model: D-039 removed
-# /auth/login, /auth/logout and /auth/session; D-036 + D-046 added /auth/join;
-# D-041 replaced the `wc_session` cookie with a Bearer service token; D-051 added
-# 403 NOT_A_MEMBER. Amendments are made under D-024's acceptance, the same way
-# D-029 amended the Set-Cookie note.
-#
-# Not covered here: inbound realtime delivery to the browser, which is a Supabase
-# Realtime subscription, not an HTTP endpoint (D-005).
-
 info:
   title: WinterChat API
   version: 0.1.0-draft
@@ -47,6 +31,8 @@ tags:
     description: F-002 LINE inbound
   - name: dashboard
     description: F-003 summary
+  - name: sync
+    description: F-002 live inbox (long-poll watermark)
 
 security:
   - serviceToken: []
@@ -140,6 +126,49 @@ paths:
                   member: { type: boolean }
         "401":
           $ref: "#/components/responses/Unauthorized"
+
+  /sync:
+    get:
+      tags: [sync]
+      summary: Wait until inbox activity is newer than `since`
+      description: |
+        Authenticated long-poll for the inbox. The browser never calls this directly —
+        `apps/web` proxies it at `/gateway/sync` with a Bearer service token, same as
+        every other route.
+
+        Omit `since` for a snapshot of the current watermark (`changed: false`).
+        Pass `since` to hang until `conversations.lastMessageAt` is newer (inbound
+        LINE messages bump that column) or the wait budget expires.
+
+        The response carries no conversation payload. A `changed: true` answer is
+        only a signal to refetch `/conversations` and the open thread through the
+        existing authenticated routes.
+      parameters:
+        - name: since
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: RFC 3339 UTC. Omit for a snapshot; pass to wait for newer activity.
+      responses:
+        "200":
+          description: Current watermark, and whether it moved past `since`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [changed, at]
+                properties:
+                  changed: { type: boolean }
+                  at:
+                    type: [string, "null"]
+                    format: date-time
+                    description: Latest `lastMessageAt` across conversations, or null if none.
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /conversations:
     get:

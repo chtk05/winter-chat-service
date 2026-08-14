@@ -89,6 +89,11 @@ export interface SessionResponse {
   expiresAt: string;
 }
 
+export interface InboxSyncResponse {
+  changed: boolean;
+  at: string | null;
+}
+
 export interface ApiErrorBody {
   error: {
     code: string;

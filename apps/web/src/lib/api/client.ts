@@ -4,6 +4,7 @@ import type {
   ConversationListResponse,
   ConversationStatus,
   DashboardSummary,
+  InboxSyncResponse,
   Message,
   MessagePageResponse,
 } from "./types";
@@ -165,4 +166,19 @@ export function getDashboardSummary(
   range: "today" | "7d" = "today",
 ): Promise<DashboardSummary> {
   return request<DashboardSummary>(`/dashboard/summary?range=${range}`);
+}
+
+export const EMPTY_WATERMARK = "1970-01-01T00:00:00.000Z";
+
+export function waitForInboxActivity(
+  since?: string | null,
+  signal?: AbortSignal,
+): Promise<InboxSyncResponse> {
+  const query = new URLSearchParams();
+  if (since) {
+    query.set("since", since);
+  }
+
+  const suffix = query.toString() ? `?${query}` : "";
+  return request<InboxSyncResponse>(`/sync${suffix}`, { signal });
 }

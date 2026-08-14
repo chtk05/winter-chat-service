@@ -6,6 +6,7 @@ import type {
   ConversationStore,
 } from "@/lib/services/conversations";
 import type { DashboardStore } from "@/lib/services/dashboard";
+import type { SyncStore } from "@/lib/services/sync";
 import type { ThreadStore } from "@/lib/services/thread";
 
 const conversationSelection = {
@@ -266,6 +267,19 @@ export function createPrismaDashboardStore(
         ...(row.text === null ? {} : { snippet: row.text }),
         at: row.createdAt,
       }));
+    },
+  };
+}
+
+export function createPrismaSyncStore(prisma: PrismaClient): SyncStore {
+  return {
+    async latestActivityAt() {
+      const row = await prisma.conversation.findFirst({
+        orderBy: { lastMessageAt: "desc" },
+        select: { lastMessageAt: true },
+      });
+
+      return row?.lastMessageAt ?? null;
     },
   };
 }

@@ -5,6 +5,7 @@ import { systemClock } from "@/lib/clock";
 import {
   createPrismaConversationStore,
   createPrismaDashboardStore,
+  createPrismaSyncStore,
   createPrismaThreadStore,
 } from "@/lib/db/chat-store";
 import { createPrismaSendStore } from "@/lib/db/send-store";
@@ -14,6 +15,7 @@ import type { MemberStore } from "@/lib/services/auth-service";
 import type { ConversationStore } from "@/lib/services/conversations";
 import type { DashboardStore } from "@/lib/services/dashboard";
 import type { SendStore } from "@/lib/services/send";
+import type { SyncStore } from "@/lib/services/sync";
 import type { ThreadStore } from "@/lib/services/thread";
 import type { WebhookStore } from "@/lib/services/webhook";
 
@@ -57,4 +59,8 @@ export function getWebhookStore(): WebhookStore {
 
 export function getSendStore(): SendStore {
   return createPrismaSendStore(getPrismaClient());
+}
+
+export function getSyncStore(): SyncStore {
+  return createPrismaSyncStore(getPrismaClient());
 }
