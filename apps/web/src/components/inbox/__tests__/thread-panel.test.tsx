@@ -1,0 +1,368 @@
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+
+import { ThreadPanel } from "../thread-panel";
+import type { Conversation, Message } from "@/lib/api/types";
+
+/**
+ * T-018 verification, against a mocked API (D-022: phase 2 never touches a real
+ * route handler, database, or LINE).
+ */
+
+jest.mock("@/lib/api/client", () => ({
+  listMessages: jest.fn(),
+  sendMessage: jest.fn(),
+  retryMessage: jest.fn(),
+  setConversationStatus: jest.fn(),
+}));
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const api = require("@/lib/api/client") as {
+  listMessages: jest.Mock;
+  sendMessage: jest.Mock;
+  retryMessage: jest.Mock;
+  setConversationStatus: jest.Mock;
+};
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+const CONVERSATION: Conversation = {
+  id: "c1",
+  contact: {
+    id: "contact-1",
+    lineUserId: "U8f2c00000000000000000000000004471",
+    displayName: "Ploy Sirichai",
+    firstSeenAt: "2026-08-04T13:58:00+07:00",
+  },
+  status: "Open",
+  unread: false,
+  lastMessageAt: "2026-08-12T09:41:00+07:00",
+  channel: "LINE",
+};
+
+const FIXED_NOW = new Date("2026-08-12T10:00:00+07:00");
+
+function renderPanel(
+  props: Partial<React.ComponentProps<typeof ThreadPanel>> = {},
+) {
+  const onConversationChange = jest.fn();
+
+  render(
+    <ThreadPanel
+      conversation={CONVERSATION}
+      onConversationChange={onConversationChange}
+      listVisible
+      onToggleList={jest.fn()}
+      detailsVisible={false}
+      onToggleDetails={jest.fn()}
+      idFactory={() => "client-uuid-1"}
+      now={() => FIXED_NOW}
+      {...props}
+    />,
+  );
+
+  return { onConversationChange };
+}
+
+function persisted(overrides: Partial<Message> = {}): Message {
+  return {
+    id: "server-1",
+    conversationId: "c1",
+    clientId: "client-uuid-1",
+    direction: "outbound",
+    messageType: "text",
+    text: "On the 12th.",
+    deliveryStatus: "sending",
+    createdAt: FIXED_NOW.toISOString(),
+    ...overrides,
+  };
+}
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  api.listMessages.mockResolvedValue({ items: [], hasMore: false, nextCursor: null });
+});
+
+describe("optimistic send", () => {
+  it("renders a sending bubble immediately, before the server answers", async () => {
+    let resolveSend: (message: Message) => void = () => {};
+    api.sendMessage.mockReturnValue(
+      new Promise<Message>((resolve) => {
+        resolveSend = resolve;
+      }),
+    );
+
+    renderPanel();
+    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    const bubble = await screen.findByTestId("message-bubble");
+    expect(bubble).toHaveAttribute("data-delivery-status", "sending");
+    expect(bubble).toHaveTextContent("On the 12th.");
+
+    resolveSend(persisted());
+  });
+
+  it("sends the trimmed text with the generated clientId", async () => {
+    api.sendMessage.mockResolvedValue(persisted());
+
+    renderPanel();
+    await userEvent.type(screen.getByLabelText("Reply message"), "  hello  ");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await waitFor(() =>
+      expect(api.sendMessage).toHaveBeenCalledWith("c1", {
+        text: "hello",
+        clientId: "client-uuid-1",
+        closeAfterSend: false,
+      }),
+    );
+  });
+
+  it("reconciles the optimistic bubble in place rather than duplicating it", async () => {
+    api.sendMessage.mockResolvedValue(persisted({ sentVia: "reply" }));
+
+    renderPanel();
+    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("sent to LINE")).toBeInTheDocument(),
+    );
+    expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
+  });
+
+  it("clears the draft after sending", async () => {
+    api.sendMessage.mockResolvedValue(persisted());
+
+    renderPanel();
+    const input = screen.getByLabelText("Reply message");
+    await userEvent.type(input, "On the 12th.");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await waitFor(() => expect(input).toHaveValue(""));
+  });
+
+  it("sends on Enter", async () => {
+    api.sendMessage.mockResolvedValue(persisted());
+
+    renderPanel();
+    await userEvent.type(
+      screen.getByLabelText("Reply message"),
+      "On the 12th.{Enter}",
+    );
+
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledTimes(1));
+  });
+
+  /* --------------------------------------------------- negative cases --- */
+
+  it("cannot send an empty message", async () => {
+    renderPanel();
+
+    expect(screen.getByRole("button", { name: "Send reply" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send & close" })).toBeDisabled();
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("cannot send a whitespace-only message", async () => {
+    renderPanel();
+    await userEvent.type(screen.getByLabelText("Reply message"), "    ");
+
+    expect(screen.getByRole("button", { name: "Send reply" })).toBeDisabled();
+    await userEvent.keyboard("{Enter}");
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("marks a failed send failed, and the bubble does not vanish", async () => {
+    api.sendMessage.mockRejectedValue(new Error("network"));
+
+    renderPanel();
+    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    const bubble = await screen.findByTestId("message-bubble");
+    await waitFor(() =>
+      expect(bubble).toHaveAttribute("data-delivery-status", "failed"),
+    );
+    expect(bubble).toHaveTextContent("On the 12th.");
+    expect(
+      within(bubble).getByRole("button", { name: "Retry" }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("Send & close (D-019 atomicity)", () => {
+  it("closes the conversation when the send succeeds", async () => {
+    api.sendMessage.mockResolvedValue(persisted());
+    const { onConversationChange } = renderPanel();
+
+    await userEvent.type(screen.getByLabelText("Reply message"), "All sorted.");
+    await userEvent.click(screen.getByRole("button", { name: "Send & close" }));
+
+    await waitFor(() =>
+      expect(api.sendMessage).toHaveBeenCalledWith("c1", {
+        text: "All sorted.",
+        clientId: "client-uuid-1",
+        closeAfterSend: true,
+      }),
+    );
+    await waitFor(() =>
+      expect(onConversationChange).toHaveBeenCalledWith(
+        expect.objectContaining({ status: "Closed" }),
+      ),
+    );
+  });
+
+  /** The required negative case: send fails → status must NOT change. */
+  it("leaves the status visibly unchanged when the send fails", async () => {
+    api.sendMessage.mockRejectedValue(new Error("network"));
+    const { onConversationChange } = renderPanel();
+
+    await userEvent.type(screen.getByLabelText("Reply message"), "All sorted.");
+    await userEvent.click(screen.getByRole("button", { name: "Send & close" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("message-bubble")).toHaveAttribute(
+        "data-delivery-status",
+        "failed",
+      ),
+    );
+
+    expect(onConversationChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Conversation status")).toHaveValue("Open");
+  });
+});
+
+describe("retry", () => {
+  it("re-sends with the same clientId when the message never reached the server", async () => {
+    api.sendMessage.mockRejectedValueOnce(new Error("network"));
+
+    renderPanel();
+    await userEvent.type(screen.getByLabelText("Reply message"), "On the 12th.");
+    await userEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await screen.findByRole("button", { name: "Retry" });
+
+    api.sendMessage.mockResolvedValueOnce(persisted());
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.sendMessage).toHaveBeenCalledTimes(2));
+    expect(api.sendMessage).toHaveBeenLastCalledWith("c1", {
+      text: "On the 12th.",
+      clientId: "client-uuid-1",
+    });
+    // One message, not two — the idempotency key held.
+    expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
+  });
+
+  it("uses the retry endpoint for a message the server did persist", async () => {
+    api.listMessages.mockResolvedValue({
+      items: [
+        persisted({
+          id: "server-9",
+          clientId: "client-uuid-old",
+          deliveryStatus: "failed",
+          failureReason: "LINE rejected the push",
+        }),
+      ],
+      hasMore: false,
+      nextCursor: null,
+    });
+    api.retryMessage.mockResolvedValue(
+      persisted({ id: "server-9", clientId: "client-uuid-old", deliveryStatus: "sending" }),
+    );
+
+    renderPanel();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(api.retryMessage).toHaveBeenCalledWith("server-9"));
+    expect(api.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("returns the bubble to failed when the retry itself fails", async () => {
+    api.listMessages.mockResolvedValue({
+      items: [
+        persisted({
+          id: "server-9",
+          clientId: "client-uuid-old",
+          deliveryStatus: "failed",
+        }),
+      ],
+      hasMore: false,
+      nextCursor: null,
+    });
+    api.retryMessage.mockRejectedValue(new Error("still down"));
+
+    renderPanel();
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("message-bubble")).toHaveAttribute(
+        "data-delivery-status",
+        "failed",
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+describe("paging (D-026)", () => {
+  it("requests the initial page on mount and a cursor page on demand", async () => {
+    api.listMessages
+      .mockResolvedValueOnce({
+        items: [persisted({ id: "m2", clientId: null })],
+        hasMore: true,
+        nextCursor: "cursor-1",
+      })
+      .mockResolvedValueOnce({
+        items: [
+          persisted({
+            id: "m1",
+            clientId: null,
+            createdAt: "2026-08-11T09:00:00+07:00",
+          }),
+        ],
+        hasMore: false,
+        nextCursor: null,
+      });
+
+    renderPanel();
+
+    await waitFor(() => expect(api.listMessages).toHaveBeenCalledWith("c1"));
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Load full history" }),
+    );
+
+    await waitFor(() =>
+      expect(api.listMessages).toHaveBeenLastCalledWith("c1", {
+        before: "cursor-1",
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getAllByTestId("message-bubble")).toHaveLength(2),
+    );
+  });
+
+  it("surfaces a failed page load without dropping the loaded messages", async () => {
+    api.listMessages
+      .mockResolvedValueOnce({
+        items: [persisted({ id: "m2", clientId: null })],
+        hasMore: true,
+        nextCursor: "cursor-1",
+      })
+      .mockRejectedValueOnce(new Error("boom"));
+
+    renderPanel();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Load full history" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not load older messages.",
+    );
+    expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
+  });
+});

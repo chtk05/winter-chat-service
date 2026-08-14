@@ -1,0 +1,75 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LogOut } from "lucide-react";
+
+import { BrandMark } from "./brand-mark";
+import { ChannelIndicator } from "./channel-indicator";
+
+/**
+ * F-004: the design's 56px top bar — logo, Inbox/Dashboard segmented control,
+ * channel indicator, sign out.
+ *
+ * The design's sign-out control is an avatar showing the initials "AM". D-002,
+ * D-009 and D-017 record that there are no per-user accounts and no per-agent
+ * identity, so rendering initials would be inventing a person (§3.2). The
+ * control keeps the design's 28px circle and becomes an explicit sign-out.
+ */
+
+const TABS = [
+  { href: "/inbox", label: "Inbox" },
+  { href: "/dashboard", label: "Dashboard" },
+] as const;
+
+export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
+  const pathname = usePathname();
+
+  return (
+    <header className="flex h-14 flex-none items-center justify-between gap-6 border-b border-border-default bg-surface px-5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <BrandMark />
+        <div className="whitespace-nowrap rounded-chip border border-border-default px-1.5 py-0.5 font-mono text-[11px] text-text-secondary">
+          admin console
+        </div>
+      </div>
+
+      <nav
+        aria-label="Console sections"
+        className="flex flex-none items-center gap-1 rounded-control bg-border-subtle p-1"
+      >
+        {TABS.map((tab) => {
+          const active = pathname?.startsWith(tab.href) ?? false;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={active ? "page" : undefined}
+              className={[
+                "whitespace-nowrap rounded-chip px-3.5 py-1.5 text-[13px] font-medium no-underline",
+                active
+                  ? "bg-surface text-text-primary shadow-[0_1px_2px_rgba(9,9,11,0.08)]"
+                  : "bg-transparent text-text-secondary",
+              ].join(" ")}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="flex flex-none items-center gap-3">
+        <ChannelIndicator />
+        <button
+          type="button"
+          onClick={onSignOut}
+          title="Sign out"
+          aria-label="Sign out"
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-border-default bg-border-subtle text-[#475569] hover:bg-border-default"
+        >
+          <LogOut aria-hidden className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </header>
+  );
+}

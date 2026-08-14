@@ -1,0 +1,45 @@
+"use client";
+
+import type { ConversationStatus } from "@/lib/api/types";
+
+/** D-019: the All/Open/Pending/Closed filter pills are in scope. */
+export type StatusFilter = "All" | ConversationStatus;
+
+export const STATUS_FILTERS: StatusFilter[] = [
+  "All",
+  "Open",
+  "Pending",
+  "Closed",
+];
+
+export function FilterPills({
+  value,
+  onChange,
+}: {
+  value: StatusFilter;
+  onChange: (next: StatusFilter) => void;
+}) {
+  return (
+    <div role="group" aria-label="Filter by status" className="flex flex-wrap gap-1.5">
+      {STATUS_FILTERS.map((filter) => {
+        const active = filter === value;
+        return (
+          <button
+            key={filter}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(filter)}
+            className={[
+              "whitespace-nowrap rounded-pill border px-2.5 py-1 text-[12px] font-medium",
+              active
+                ? "border-primary bg-primary text-[#f8fafc]"
+                : "border-border-default bg-surface text-[#475569]",
+            ].join(" ")}
+          >
+            {filter}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
