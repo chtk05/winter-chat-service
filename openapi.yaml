@@ -90,22 +90,28 @@ paths:
                   maxLength: 128
                   description: Compared against the ACCESS_CODE environment variable.
       responses:
-        '204':
+        "204":
           description: |
             Joined. Membership persisted. NO Set-Cookie — this server sets no cookies
             anywhere (D-039).
-        '400':
-          $ref: '#/components/responses/BadRequest'
+        "400":
+          $ref: "#/components/responses/BadRequest"
           description: Missing, empty, or over-long code.
-        '401':
+        "401":
           description: |
             Either no valid token, or an incorrect code. The body is identical for every
             wrong code.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: { $ref: "#/components/schemas/Error" }
               example:
-                { error: { code: INVALID_ACCESS_CODE, message: That access code didn't work } }
+                {
+                  error:
+                    {
+                      code: INVALID_ACCESS_CODE,
+                      message: That access code didn't work,
+                    },
+                }
 
   /auth/membership:
     get:
@@ -123,7 +129,7 @@ paths:
         MEMBERS-OPTIONAL, like `/auth/join`: the only callers that need it hold a token
         whose `member` claim is `false`. It grants nothing and is safe in that state.
       responses:
-        '200':
+        "200":
           description: The caller's membership, read from the database.
           content:
             application/json:
@@ -132,8 +138,8 @@ paths:
                 required: [member]
                 properties:
                   member: { type: boolean }
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /conversations:
     get:
@@ -145,7 +151,7 @@ paths:
       parameters:
         - name: status
           in: query
-          schema: { $ref: '#/components/schemas/ConversationStatus' }
+          schema: { $ref: "#/components/schemas/ConversationStatus" }
           description: Omit for the All filter.
         - name: search
           in: query
@@ -161,7 +167,7 @@ paths:
             Page size. Server default 30. D-048: a page is one row PER CONTACT — that
             contact's most recent conversation — not one row per conversation.
       responses:
-        '200':
+        "200":
           description: A page of conversations.
           content:
             application/json:
@@ -171,9 +177,9 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: { $ref: '#/components/schemas/ConversationSummary' }
+                    items: { $ref: "#/components/schemas/ConversationSummary" }
                   nextCursor:
-                    type: [string, 'null']
+                    type: [string, "null"]
                   totals:
                     type: object
                     description: Backs the list footer count line.
@@ -182,26 +188,26 @@ paths:
                       matching: { type: integer }
                       all: { type: integer }
                       open: { type: integer }
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
 
   /conversations/{conversationId}:
     parameters:
-      - $ref: '#/components/parameters/ConversationId'
+      - $ref: "#/components/parameters/ConversationId"
     get:
       tags: [conversations]
       summary: Conversation detail for the thread header and details panel
       responses:
-        '200':
+        "200":
           description: Conversation.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Conversation' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+              schema: { $ref: "#/components/schemas/Conversation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     patch:
       tags: [conversations]
       summary: Change conversation status
@@ -214,21 +220,21 @@ paths:
               type: object
               required: [status]
               properties:
-                status: { $ref: '#/components/schemas/ConversationStatus' }
+                status: { $ref: "#/components/schemas/ConversationStatus" }
       responses:
-        '200':
+        "200":
           description: Updated conversation.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Conversation' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+              schema: { $ref: "#/components/schemas/Conversation" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /conversations/{conversationId}/read:
     parameters:
-      - $ref: '#/components/parameters/ConversationId'
+      - $ref: "#/components/parameters/ConversationId"
     post:
       tags: [conversations]
       summary: Mark every inbound message in this conversation as read
@@ -236,14 +242,14 @@ paths:
         D-007 — opening a thread marks all of it read. Read state is workspace-wide and
         shared across all signed-in admins (D-009). Idempotent.
       responses:
-        '204': { description: Marked read. }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "204": { description: Marked read. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /conversations/{conversationId}/messages:
     parameters:
-      - $ref: '#/components/parameters/ConversationId'
+      - $ref: "#/components/parameters/ConversationId"
     get:
       tags: [messages]
       summary: Thread history, newest last, paged backwards
@@ -261,7 +267,7 @@ paths:
             above 50 is REJECTED with 400 — never silently clamped, or the client would
             believe it received a full page when it did not.
       responses:
-        '200':
+        "200":
           description: A page of messages.
           content:
             application/json:
@@ -271,12 +277,12 @@ paths:
                 properties:
                   items:
                     type: array
-                    items: { $ref: '#/components/schemas/Message' }
+                    items: { $ref: "#/components/schemas/Message" }
                   hasMore: { type: boolean }
-                  nextCursor: { type: [string, 'null'] }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+                  nextCursor: { type: [string, "null"] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [messages]
       summary: Send an outbound text message
@@ -314,17 +320,17 @@ paths:
                   type: boolean
                   default: false
       responses:
-        '202':
+        "202":
           description: Accepted. Message persisted with deliveryStatus `sending`.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Message' }
-        '400':
-          $ref: '#/components/responses/BadRequest'
+              schema: { $ref: "#/components/schemas/Message" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
           description: Empty text, oversized text, or missing clientId.
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /messages/{messageId}/retry:
     parameters:
@@ -337,19 +343,19 @@ paths:
       summary: Retry a failed outbound message
       description: D-013. Only valid from `failed`.
       responses:
-        '202':
+        "202":
           description: Retry accepted; deliveryStatus returns to `sending`.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Message' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409':
+              schema: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
           description: Message is not in `failed`, or is inbound.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: { $ref: "#/components/schemas/Error" }
 
   /line/webhook:
     post:
@@ -380,9 +386,9 @@ paths:
                 destination: { type: string }
                 events: { type: array, items: { type: object } }
       responses:
-        '200': { description: Events accepted, or ignored as duplicates. }
-        '400': { description: Malformed payload. Not retried by LINE. }
-        '401':
+        "200": { description: Events accepted, or ignored as duplicates. }
+        "400": { description: Malformed payload. Not retried by LINE. }
+        "401":
           {
             description: Missing,
             malformed,
@@ -402,13 +408,13 @@ paths:
           schema: { type: string, enum: [today, 7d], default: today }
           description: Asia/Bangkok calendar days. The design's 30d range is out of scope.
       responses:
-        '200':
+        "200":
           description: Summary.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/DashboardSummary' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
+              schema: { $ref: "#/components/schemas/DashboardSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
 components:
   securitySchemes:
@@ -436,14 +442,14 @@ components:
       description: Invalid request.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: "#/components/schemas/Error" }
     Unauthorized:
       description: |
         No Bearer token, or one that does not verify — malformed, bad signature, expired,
         or signed with a secret this deployment does not hold (D-041).
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: "#/components/schemas/Error" }
     Forbidden:
       description: |
         D-051. Authenticated with LINE, but has not passed D-036's join gate — `code` is
@@ -452,12 +458,12 @@ components:
         than back to sign-in.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: No such resource.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/Error' }
+          schema: { $ref: "#/components/schemas/Error" }
 
   schemas:
     Error:
@@ -512,7 +518,7 @@ components:
           description: |
             From the LINE profile API, cached (D-013). Falls back to the LINE user id
             when the profile fetch failed.
-        avatarUrl: { type: [string, 'null'], format: uri }
+        avatarUrl: { type: [string, "null"], format: uri }
         firstSeenAt: { type: string, format: date-time }
 
     ConversationSummary:
@@ -521,8 +527,8 @@ components:
       required: [id, contact, status, unread, lastMessageAt, channel]
       properties:
         id: { type: string }
-        contact: { $ref: '#/components/schemas/Contact' }
-        status: { $ref: '#/components/schemas/ConversationStatus' }
+        contact: { $ref: "#/components/schemas/Contact" }
+        status: { $ref: "#/components/schemas/ConversationStatus" }
         unread:
           type: boolean
           description: Drives the row's unread dot (D-007).
@@ -538,7 +544,7 @@ components:
 
     Conversation:
       allOf:
-        - $ref: '#/components/schemas/ConversationSummary'
+        - $ref: "#/components/schemas/ConversationSummary"
         - type: object
           properties:
             messageCount: { type: integer }
@@ -550,9 +556,9 @@ components:
         id: { type: string }
         conversationId: { type: string }
         clientId:
-          type: [string, 'null']
+          type: [string, "null"]
           description: Echoes the sender's optimistic id so the bubble can be reconciled.
-        direction: { $ref: '#/components/schemas/MessageDirection' }
+        direction: { $ref: "#/components/schemas/MessageDirection" }
         messageType:
           type: string
           description: |
@@ -560,18 +566,18 @@ components:
             as a placeholder and rendered as unsupported (D-010).
           examples: [text, image, sticker, location]
         text:
-          type: [string, 'null']
+          type: [string, "null"]
           description: Null for non-text inbound placeholders.
         deliveryStatus:
           oneOf:
-            - $ref: '#/components/schemas/DeliveryStatus'
-            - type: 'null'
+            - $ref: "#/components/schemas/DeliveryStatus"
+            - type: "null"
           description: Outbound only.
         failureReason:
-          type: [string, 'null']
+          type: [string, "null"]
           description: Present when deliveryStatus is `failed`.
         sentVia:
-          type: [string, 'null']
+          type: [string, "null"]
           enum: [reply, push, null]
           description: |
             Which LINE API delivered it (D-006). Backs the design's 'sent to LINE' badge.
@@ -630,7 +636,7 @@ components:
             properties:
               conversationId: { type: string }
               contactName: { type: string }
-              direction: { $ref: '#/components/schemas/MessageDirection' }
+              direction: { $ref: "#/components/schemas/MessageDirection" }
               snippet: { type: string }
               at: { type: string, format: date-time }
 

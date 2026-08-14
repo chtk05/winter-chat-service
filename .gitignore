@@ -74,6 +74,10 @@ web_modules/
 .cache
 .parcel-cache
 
+# Vercel CLI local link (D-060) — `vercel pull` writes .vercel/project.json, which
+# carries the org and project ids.
+.vercel
+
 # Next.js build output
 .next
 out
