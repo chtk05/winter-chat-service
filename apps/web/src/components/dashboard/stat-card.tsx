@@ -18,17 +18,17 @@ export function StatCard({
   caption?: string;
 }) {
   return (
-    <div className="rounded-card border border-border-default bg-surface p-4">
-      <div className="text-[13px] text-text-secondary">{label}</div>
+    <div className="rounded-card border-border-default bg-surface border p-4">
+      <div className="text-text-secondary text-[13px]">{label}</div>
       <div
         data-testid="stat-value"
         style={accent ? { color: "#db2777" } : undefined}
-        className="mt-1.5 text-[28px] font-semibold tracking-heading"
+        className="tracking-heading mt-1.5 text-[28px] font-semibold"
       >
         {value}
       </div>
       {caption && (
-        <div className="mt-1 text-[12px] text-text-secondary">{caption}</div>
+        <div className="text-text-secondary mt-1 text-[12px]">{caption}</div>
       )}
     </div>
   );

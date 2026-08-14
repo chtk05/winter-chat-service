@@ -7,12 +7,12 @@ export function BrandMark({ showName = true }: { showName?: boolean }) {
     <div className="flex min-w-0 items-center gap-2.5">
       <div
         aria-hidden
-        className="flex h-6 w-6 flex-none items-center justify-center rounded-chip bg-primary text-[12px] font-semibold text-[#f8fafc]"
+        className="rounded-chip bg-primary flex h-6 w-6 flex-none items-center justify-center text-[12px] font-semibold text-[#f8fafc]"
       >
         W
       </div>
       {showName && (
-        <div className="whitespace-nowrap text-[14px] font-medium">
+        <div className="text-[14px] font-medium whitespace-nowrap">
           WinterChat
         </div>
       )}

@@ -8,7 +8,191 @@ datasource db {
   provider = "postgresql"
 }
 
-// D-032: the LoginAttempt model (D-028) is removed along with per-IP login rate
-// limiting (D-011, superseded). No model is currently defined — the Contact /
-// Conversation / Message / ReplyToken / WebhookEvent models belong to T-003, still
-// blocked on OQ-17 and OQ-19.
+// ---------------------------------------------------------------------------
+// T-003 — the chat data model. D-032 removed the earlier `LoginAttempt` model
+// along with per-IP login rate limiting; nothing of it remains.
+// ---------------------------------------------------------------------------
+
+/// An admin who signs in to the console (F-001).
+///
+/// D-044: `User` and `Contact` are SEPARATE TABLES with NO FOREIGN KEY between them,
+/// and THE SAME LINE USER ID MAY LEGITIMATELY APPEAR IN BOTH. An admin who also
+/// messages the Official Account exists independently in each table. This is not a
+/// duplication bug and must not be "fixed" with a cross-table unique constraint.
+///
+/// D-045: no role field. Every member has full access; authorisation is one question
+/// everywhere — is this caller a member?
+model User {
+  id String @id @default(cuid())
+
+  /// LINE Login subject (D-035). Unique within this table only, and the subject the
+  /// D-041 service token resolves against (D-050).
+  lineUserId String @unique
+
+  /// D-050: nullable and currently never populated — the service token carries no profile
+  /// and nothing renders an admin's name (T-002 de-identified the sign-out control, D-045
+  /// has no roles). Populating them is a future task, not an oversight.
+  displayName String?
+  avatarUrl   String?
+
+  /// D-036's second gate. False for a LINE-authenticated user who has not entered the
+  /// join code; true once they have. D-046: only ever transitions false -> true —
+  /// nothing on record revokes membership.
+  member   Boolean   @default(false)
+  joinedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+/// Someone who has messaged the Official Account (F-002 item 1).
+model Contact {
+  id String @id @default(cuid())
+
+  /// D-012: the LINE user id is the identity the webhook carries.
+  lineUserId String @unique
+
+  /// D-013: cached from the LINE profile API. Falls back to the LINE user id when the
+  /// profile fetch failed, so this is never empty.
+  displayName String
+  avatarUrl   String?
+
+  firstSeenAt DateTime @default(now())
+
+  conversations Conversation[]
+
+  @@map("contacts")
+}
+
+/// A thread with one contact (F-002 items 2, 7).
+///
+/// D-048: `contactId` is deliberately NOT unique — the schema permits a contact to hold
+/// several conversations. No recorded behaviour creates a second one today (D-047 reopens
+/// the existing conversation rather than starting a new thread), and no query or route may
+/// present more than one per contact. The cardinality is open so a future decision needs no
+/// migration; it is not a feature that exists.
+model Conversation {
+  id String @id @default(cuid())
+
+  contactId String
+  contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  /// D-047: created as `Open` on first inbound. An inbound message on a `Closed`
+  /// conversation reopens it as `Pending`. `Closed` is therefore NOT terminal.
+  status ConversationStatus @default(Open)
+
+  /// D-007 + D-027: read state is a per-conversation boolean, workspace-wide. There is
+  /// deliberately no per-message read flag — unread counts contacts, not messages, so
+  /// there is nothing a per-message flag would answer.
+  unread Boolean @default(false)
+
+  /// Denormalised so the list can sort without touching every message. Maintained by the
+  /// write path, never by a reader.
+  lastMessageAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages    Message[]
+  replyTokens ReplyToken[]
+
+  // Backs "latest conversation per contact" (D-048) and the list's most-recent-first sort.
+  @@index([contactId, lastMessageAt(sort: Desc)])
+  @@index([lastMessageAt(sort: Desc)])
+  @@index([status])
+  @@map("conversations")
+}
+
+/// One message in either direction (F-002 items 3, 4, 9).
+model Message {
+  id String @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  /// D-021: the client-generated optimistic id, and the idempotency key for sending. A
+  /// repeat of the same clientId must return the original message rather than send twice,
+  /// which the unique constraint enforces at the database rather than in a race-prone read.
+  /// Null for inbound messages, which no client originated.
+  clientId String? @unique
+
+  direction MessageDirection
+
+  /// D-010: the LINE message type. `text` is the only supported type; anything else is
+  /// stored as a typed placeholder with `text` null and rendered as unsupported.
+  messageType String
+  text        String?
+
+  /// D-013: outbound only. Null on inbound messages, which have no delivery lifecycle.
+  deliveryStatus DeliveryStatus?
+  failureReason  String?
+
+  /// D-006: which LINE API delivered it. Backs the design's "sent to LINE" badge.
+  sentVia SentVia?
+
+  createdAt DateTime @default(now())
+
+  // Thread history is read newest-last and paged backwards (openapi.yaml), and the
+  // dashboard counts by day and direction (F-003).
+  @@index([conversationId, createdAt])
+  @@index([direction, createdAt])
+  @@map("messages")
+}
+
+/// D-006: a LINE reply token, usable once and short-lived. Kept so the send path can
+/// prefer Reply over Push.
+model ReplyToken {
+  id String @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  value    String   @unique
+  issuedAt DateTime @default(now())
+
+  /// Set after ANY send attempt, successful or not (D-006) — a token consumed by a failed
+  /// Reply is spent regardless.
+  used Boolean @default(false)
+
+  @@index([conversationId, used, issuedAt(sort: Desc)])
+  @@map("reply_tokens")
+}
+
+/// D-012: inbound events are deduped by LINE event id. The unique constraint is the
+/// dedupe mechanism — a redelivery loses the insert race rather than being filtered by a
+/// prior read.
+model WebhookEvent {
+  id String @id @default(cuid())
+
+  lineEventId String   @unique
+  receivedAt  DateTime @default(now())
+
+  @@map("webhook_events")
+}
+
+/// D-019, D-047.
+enum ConversationStatus {
+  Open
+  Pending
+  Closed
+}
+
+enum MessageDirection {
+  inbound
+  outbound
+}
+
+/// D-013.
+enum DeliveryStatus {
+  sending
+  sent
+  failed
+}
+
+/// D-006.
+enum SentVia {
+  reply
+  push
+}

@@ -13,8 +13,12 @@ describe("ChannelSelector", () => {
     render(<ChannelSelector />);
 
     expect(screen.getByRole("button", { name: "LINE" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Facebook" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "WhatsApp" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Facebook" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "WhatsApp" }),
+    ).toBeInTheDocument();
   });
 
   it("enables LINE and nothing else", () => {

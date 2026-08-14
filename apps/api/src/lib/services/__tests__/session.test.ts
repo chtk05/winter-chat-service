@@ -1,144 +1,229 @@
 import { SignJWT } from "jose";
 
 import { fixedClock } from "@/lib/clock";
-import {
-  SESSION_LIFETIME_SECONDS,
-  issueSession,
-  verifySession,
-} from "@/lib/services/session";
+import { verifyServiceToken } from "@/lib/services/session";
 
 const SECRET = "a-test-signing-secret-of-at-least-32-chars";
-const ROTATED_SECRET = "a-different-signing-secret-32-chars-long!";
-const NOW = new Date("2026-08-12T09:00:00.000Z");
+/** D-039's two-deployment drift: apps/web signing with a value apps/api no longer holds. */
+const OTHER_DEPLOYMENT_SECRET = "a-different-signing-secret-32-chars-long!";
+const NOW = new Date("2026-08-13T09:00:00.000Z");
+const LINE_USER_ID = "U8f2c000000000000000000000000004471";
+
+/** D-049: 120 seconds. */
+const TTL_SECONDS = 120;
 
 function encode(secret: string): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
-describe("issueSession", () => {
-  it("issues a token expiring exactly 7 days out (D-008)", async () => {
-    const session = await issueSession(SECRET, fixedClock(NOW));
+/**
+ * Tokens are built with `jose` directly rather than through a helper this app shares with
+ * itself. `apps/api` never mints one (D-041) — building it here the way `apps/web` will
+ * keeps the test honest about what it is verifying.
+ */
+async function mintToken(
+  overrides: {
+    secret?: string;
+    claims?: Record<string, unknown>;
+    issuedAt?: Date;
+    expiresAt?: Date | null;
+    algorithm?: string;
+  } = {},
+): Promise<string> {
+  const issuedAt = overrides.issuedAt ?? NOW;
+  const issuedAtSeconds = Math.floor(issuedAt.getTime() / 1000);
 
-    expect(session.expiresAt.getTime() - NOW.getTime()).toBe(
-      SESSION_LIFETIME_SECONDS * 1000,
+  let builder = new SignJWT({
+    sub: LINE_USER_ID,
+    member: true,
+    ...overrides.claims,
+  })
+    .setProtectedHeader({ alg: overrides.algorithm ?? "HS256" })
+    .setIssuedAt(issuedAtSeconds);
+
+  if (overrides.expiresAt !== null) {
+    builder = builder.setExpirationTime(
+      overrides.expiresAt
+        ? Math.floor(overrides.expiresAt.getTime() / 1000)
+        : issuedAtSeconds + TTL_SECONDS,
     );
-    expect(SESSION_LIFETIME_SECONDS).toBe(604800);
-  });
+  }
 
-  it("issues a token that verifies against the same secret", async () => {
-    const clock = fixedClock(NOW);
-    const { token } = await issueSession(SECRET, clock);
+  return builder.sign(encode(overrides.secret ?? SECRET));
+}
 
-    await expect(verifySession(token, SECRET, clock)).resolves.toEqual({
+describe("verifyServiceToken — positive cases (D-041, D-050)", () => {
+  it("accepts a token signed with the shared secret and returns its claims", async () => {
+    const token = await mintToken();
+
+    await expect(
+      verifyServiceToken(token, SECRET, fixedClock(NOW)),
+    ).resolves.toEqual({
       valid: true,
-      expiresAt: new Date(NOW.getTime() + SESSION_LIFETIME_SECONDS * 1000),
+      claims: { lineUserId: LINE_USER_ID, member: true },
+      expiresAt: new Date(NOW.getTime() + TTL_SECONDS * 1000),
     });
   });
 
-  it("carries no per-user identity, because D-002 creates none", async () => {
-    const { token } = await issueSession(SECRET, fixedClock(NOW));
-    const [, payloadSegment] = token.split(".");
-    const payload: unknown = JSON.parse(
-      Buffer.from(payloadSegment, "base64url").toString("utf8"),
-    );
+  it("carries `member: false` through rather than defaulting it (D-046)", async () => {
+    const token = await mintToken({ claims: { member: false } });
+    const result = await verifyServiceToken(token, SECRET, fixedClock(NOW));
 
-    // Only the registered time claims — no sub, no email, no role.
-    expect(Object.keys(payload as object).sort()).toEqual(["exp", "iat"]);
+    expect(result).toMatchObject({
+      valid: true,
+      claims: { lineUserId: LINE_USER_ID, member: false },
+    });
+  });
+
+  it("accepts a token one second before it expires (boundary)", async () => {
+    const token = await mintToken();
+    const oneSecondEarly = new Date(NOW.getTime() + (TTL_SECONDS - 1) * 1000);
+
+    await expect(
+      verifyServiceToken(token, SECRET, fixedClock(oneSecondEarly)),
+    ).resolves.toMatchObject({ valid: true });
+  });
+
+  it("resolves the subject as a LINE user id, not an internal User id (D-050)", async () => {
+    const token = await mintToken({ claims: { sub: LINE_USER_ID } });
+    const result = await verifyServiceToken(token, SECRET, fixedClock(NOW));
+
+    expect(result).toMatchObject({ claims: { lineUserId: LINE_USER_ID } });
   });
 });
 
-describe("verifySession — negative cases required by D-008", () => {
-  it("rejects an absent cookie", async () => {
+describe("verifyServiceToken — negative cases required by D-041 and T-004", () => {
+  it("rejects an absent token", async () => {
     await expect(
-      verifySession(undefined, SECRET, fixedClock(NOW)),
+      verifyServiceToken(undefined, SECRET, fixedClock(NOW)),
     ).resolves.toEqual({ valid: false, reason: "malformed" });
   });
 
-  it("rejects an empty cookie value", async () => {
-    await expect(verifySession("", SECRET, fixedClock(NOW))).resolves.toEqual({
-      valid: false,
-      reason: "malformed",
-    });
-  });
-
-  it("rejects a malformed cookie that is not a JWT at all", async () => {
+  it("rejects an empty token", async () => {
     await expect(
-      verifySession("not-a-jwt", SECRET, fixedClock(NOW)),
+      verifyServiceToken("", SECRET, fixedClock(NOW)),
     ).resolves.toEqual({ valid: false, reason: "malformed" });
   });
 
-  it("rejects a token whose payload was tampered with (bad signature)", async () => {
-    const { token } = await issueSession(SECRET, fixedClock(NOW));
+  it("rejects a malformed token", async () => {
+    await expect(
+      verifyServiceToken("not.a.jwt", SECRET, fixedClock(NOW)),
+    ).resolves.toEqual({ valid: false, reason: "malformed" });
+  });
+
+  it("rejects a tampered payload, keeping the original signature", async () => {
+    const token = await mintToken({ claims: { member: false } });
     const [header, , signature] = token.split(".");
     const forgedPayload = Buffer.from(
-      JSON.stringify({ iat: 0, exp: 9999999999, admin: true }),
+      JSON.stringify({
+        sub: LINE_USER_ID,
+        member: true,
+        exp: Math.floor(NOW.getTime() / 1000) + TTL_SECONDS,
+      }),
       "utf8",
     ).toString("base64url");
 
-    const tampered = `${header}.${forgedPayload}.${signature}`;
-
     await expect(
-      verifySession(tampered, SECRET, fixedClock(NOW)),
+      verifyServiceToken(
+        `${header}.${forgedPayload}.${signature}`,
+        SECRET,
+        fixedClock(NOW),
+      ),
     ).resolves.toEqual({ valid: false, reason: "bad-signature" });
   });
 
-  it("rejects a cookie signed with a rotated secret", async () => {
-    const { token } = await issueSession(ROTATED_SECRET, fixedClock(NOW));
+  it("rejects a token signed with a DIFFERENT secret than this app holds (D-039 drift)", async () => {
+    // The practical failure mode of the shared secret: SESSION_SECRET rotated in one
+    // Vercel project and not the other. apps/web would happily mint; apps/api must refuse.
+    const token = await mintToken({ secret: OTHER_DEPLOYMENT_SECRET });
 
     await expect(
-      verifySession(token, SECRET, fixedClock(NOW)),
+      verifyServiceToken(token, SECRET, fixedClock(NOW)),
     ).resolves.toEqual({ valid: false, reason: "bad-signature" });
   });
 
-  it("rejects an expired cookie", async () => {
-    const { token } = await issueSession(SECRET, fixedClock(NOW));
-    const oneSecondAfterExpiry = new Date(
-      NOW.getTime() + (SESSION_LIFETIME_SECONDS + 1) * 1000,
-    );
+  it("rejects an expired token", async () => {
+    const token = await mintToken();
+    const afterExpiry = new Date(NOW.getTime() + (TTL_SECONDS + 1) * 1000);
 
     await expect(
-      verifySession(token, SECRET, fixedClock(oneSecondAfterExpiry)),
+      verifyServiceToken(token, SECRET, fixedClock(afterExpiry)),
     ).resolves.toEqual({ valid: false, reason: "expired" });
   });
 
-  it("still accepts a cookie one second before it expires (boundary)", async () => {
-    const { token } = await issueSession(SECRET, fixedClock(NOW));
-    const justBeforeExpiry = new Date(
-      NOW.getTime() + (SESSION_LIFETIME_SECONDS - 1) * 1000,
-    );
+  it("rejects an `alg: none` token", async () => {
+    // Built by hand: jose refuses to sign one.
+    const header = Buffer.from(
+      JSON.stringify({ alg: "none" }),
+      "utf8",
+    ).toString("base64url");
+    const payload = Buffer.from(
+      JSON.stringify({
+        sub: LINE_USER_ID,
+        member: true,
+        exp: Math.floor(NOW.getTime() / 1000) + TTL_SECONDS,
+      }),
+      "utf8",
+    ).toString("base64url");
 
-    const verification = await verifySession(
-      token,
+    const result = await verifyServiceToken(
+      `${header}.${payload}.`,
       SECRET,
-      fixedClock(justBeforeExpiry),
+      fixedClock(NOW),
     );
 
-    expect(verification.valid).toBe(true);
+    expect(result.valid).toBe(false);
   });
 
-  it("rejects a validly signed token that carries no expiry", async () => {
-    // A caller could otherwise mint a session that never dies, defeating D-008's 7 days.
-    const noExpiry = await new SignJWT({})
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt(Math.floor(NOW.getTime() / 1000))
-      .sign(encode(SECRET));
+  it("rejects a validly signed token carrying no `exp` (D-049 gives it 120s)", async () => {
+    const token = await mintToken({ expiresAt: null });
 
     await expect(
-      verifySession(noExpiry, SECRET, fixedClock(NOW)),
+      verifyServiceToken(token, SECRET, fixedClock(NOW)),
     ).resolves.toEqual({ valid: false, reason: "malformed" });
   });
 
-  it("rejects a token using the 'none' algorithm", async () => {
-    const unsigned = `${Buffer.from(
-      JSON.stringify({ alg: "none" }),
-      "utf8",
-    ).toString("base64url")}.${Buffer.from(
-      JSON.stringify({ exp: 9999999999 }),
-      "utf8",
-    ).toString("base64url")}.`;
+  it("rejects a validly signed token with no subject", async () => {
+    const token = await mintToken({ claims: { sub: undefined } });
 
-    const verification = await verifySession(unsigned, SECRET, fixedClock(NOW));
-
-    expect(verification.valid).toBe(false);
+    await expect(
+      verifyServiceToken(token, SECRET, fixedClock(NOW)),
+    ).resolves.toEqual({ valid: false, reason: "malformed" });
   });
+
+  it("rejects a validly signed token with an empty subject", async () => {
+    const token = await mintToken({ claims: { sub: "" } });
+
+    await expect(
+      verifyServiceToken(token, SECRET, fixedClock(NOW)),
+    ).resolves.toEqual({ valid: false, reason: "malformed" });
+  });
+
+  it("rejects a validly signed token with no `member` claim", async () => {
+    // Refused rather than defaulted to false: one rule for a malformed claim set is
+    // easier to hold than a per-claim defaulting policy.
+    const token = await mintToken({ claims: { member: undefined } });
+
+    await expect(
+      verifyServiceToken(token, SECRET, fixedClock(NOW)),
+    ).resolves.toEqual({ valid: false, reason: "malformed" });
+  });
+
+  it.each([
+    ['the string "true"', "true"],
+    ['the string "false"', "false"],
+    ["the number 1", 1],
+    ["null", null],
+  ])(
+    "rejects a `member` claim that is %s rather than a boolean",
+    async (_label, member) => {
+      // "false" is a truthy string. Admitting one would turn a serialisation slip in
+      // apps/web into a silent grant of membership.
+      const token = await mintToken({ claims: { member } });
+
+      await expect(
+        verifyServiceToken(token, SECRET, fixedClock(NOW)),
+      ).resolves.toEqual({ valid: false, reason: "malformed" });
+    },
+  );
 });

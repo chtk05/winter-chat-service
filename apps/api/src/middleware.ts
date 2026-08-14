@@ -2,36 +2,48 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { systemClock } from "@/lib/clock";
 import { readAuthConfig } from "@/lib/config";
-import { corsHeaders } from "@/lib/http/cors";
 import { ERROR_CODES, errorResponse } from "@/lib/http/errors";
-import { describeSession } from "@/lib/services/session-state";
-import { SESSION_COOKIE_NAME } from "@/lib/services/session";
+import { describeCaller } from "@/lib/services/session-state";
 
 /**
- * D-008: route protection. D-025 split the middleware in two — `apps/web` guards pages
- * and redirects to the login screen, `apps/api` (here) guards routes and answers 401.
- * Neither can see the other's request, so this file never redirects.
+ * D-039: route protection for a stateless resource server. D-025 split the middleware in
+ * two — `apps/web` guards pages and redirects to the sign-in screen, `apps/api` (here)
+ * guards routes and answers 401. Neither can see the other's request, so this file never
+ * redirects.
  *
- * Nothing here touches Prisma: middleware runs on the edge runtime, and the session is
- * stateless by D-008, so verifying it needs only the signing secret.
+ * D-040: no CORS. Every caller is `apps/web`'s server-side proxy, not a browser, so there
+ * is no origin to allow-list and no preflight to answer.
+ *
+ * Nothing here touches Prisma: middleware runs on the Edge runtime, and the token is
+ * stateless by D-041, so verifying it needs only the signing secret.
  */
-const UNAUTHENTICATED_PATHS: readonly string[] = [
-  // D-021: the only two unauthenticated paths in the contract.
-  "/api/auth/login",
-  "/api/line/webhook",
-  // Not in D-021's list, but `openapi.yaml` records logout as idempotent and succeeding
-  // with no session present — guarding it would make an expired cookie unclearable.
-  "/api/auth/logout",
+
+/**
+ * Callers with no token at all.
+ *
+ * `/api/line/webhook` is called by LINE's servers directly, not through `apps/web`'s
+ * proxy, and D-012 authenticates it with an `X-Line-Signature` HMAC instead of a token.
+ * `openapi.yaml` records it as `security: []`.
+ */
+const UNAUTHENTICATED_PATHS: readonly string[] = ["/api/line/webhook"];
+
+/**
+ * D-046's bootstrap constraint, and the reason this list exists at all: a freshly
+ * authenticated user holds a token whose `member` claim is `false`, and the join endpoint
+ * is precisely the route that must accept one. It is the ONLY members-optional route, and
+ * it is named here explicitly rather than inferred from the path.
+ */
+const MEMBERS_OPTIONAL_PATHS: readonly string[] = [
+  "/api/auth/join",
+  // D-054: the membership read. Only a `member: false` token ever needs it, and it grants
+  // nothing. Keep this list short and explicit — every entry is a route a non-member reaches.
+  "/api/auth/membership",
 ];
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
-  // A CORS preflight carries no cookies by design, so it can never be authenticated.
-  // Each route's own OPTIONS handler answers it.
-  if (request.method === "OPTIONS") {
-    return NextResponse.next();
-  }
+  const path = request.nextUrl.pathname;
 
-  if (UNAUTHENTICATED_PATHS.includes(request.nextUrl.pathname)) {
+  if (UNAUTHENTICATED_PATHS.includes(path)) {
     return NextResponse.next();
   }
 
@@ -43,23 +55,26 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       500,
       ERROR_CODES.serverMisconfigured,
       "The server is not configured correctly.",
-      corsHeaders(request.headers.get("origin"), []),
     );
   }
 
-  const state = await describeSession(
-    request.cookies.get(SESSION_COOKIE_NAME)?.value,
-    { config, clock: systemClock },
-  );
+  const caller = await describeCaller(request.headers.get("authorization"), {
+    config,
+    clock: systemClock,
+  });
 
-  if (!state.authenticated) {
-    // D-029: the 401 needs CORS headers of its own, or the browser hides the status from
-    // the console and the client cannot tell "rejected" from "network failure".
+  if (!caller.authenticated) {
+    return errorResponse(401, ERROR_CODES.unauthorized, "Sign in to continue.");
+  }
+
+  // D-036's third state, and the place a security bug would appear: a valid token proves
+  // a LINE identity, NOT membership. Treating "has a valid token" as "is a member" would
+  // admit any LINE user on the platform.
+  if (!caller.member && !MEMBERS_OPTIONAL_PATHS.includes(path)) {
     return errorResponse(
-      401,
-      ERROR_CODES.unauthorized,
-      "Sign in to continue.",
-      corsHeaders(request.headers.get("origin"), config.allowedOrigins),
+      403,
+      ERROR_CODES.notAMember,
+      "Enter your join code to continue.",
     );
   }
 

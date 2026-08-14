@@ -15,10 +15,10 @@ export function MessageBarChart({
   const max = Math.max(...totals, 0);
 
   return (
-    <div className="rounded-card border border-border-default bg-surface px-5 pb-5 pt-[18px]">
+    <div className="rounded-card border-border-default bg-surface border px-5 pt-[18px] pb-5">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-[14px] font-semibold">Messages per day</h2>
-        <div className="text-[12px] text-text-secondary">Last 7 days</div>
+        <div className="text-text-secondary text-[12px]">Last 7 days</div>
       </div>
 
       <div className="mt-5 flex h-40 items-end gap-1.5">
@@ -46,7 +46,7 @@ export function MessageBarChart({
                   className="min-h-0.5 w-full rounded-[4px]"
                 />
               </div>
-              <div className="flex-none font-mono text-[10px] text-text-muted">
+              <div className="text-text-muted flex-none font-mono text-[10px]">
                 {day.date.slice(-2)}
               </div>
             </div>

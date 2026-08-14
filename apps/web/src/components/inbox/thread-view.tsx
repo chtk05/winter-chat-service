@@ -56,8 +56,8 @@ export function ThreadView({
 }) {
   if (!conversation) {
     return (
-      <div className="flex min-h-0 min-w-[360px] flex-1 basis-[420px] items-center justify-center bg-bg">
-        <p className="text-[13px] text-text-secondary">
+      <div className="bg-bg flex min-h-0 min-w-[360px] flex-1 basis-[420px] items-center justify-center">
+        <p className="text-text-secondary text-[13px]">
           Select a conversation to open its thread.
         </p>
       </div>
@@ -68,11 +68,11 @@ export function ThreadView({
 
   return (
     <div className="flex min-h-0 min-w-[360px] flex-1 basis-[420px] flex-col">
-      <div className="flex min-h-[60px] flex-none items-center justify-between gap-4 border-b border-border-default px-5 py-2.5">
+      <div className="border-border-default flex min-h-[60px] flex-none items-center justify-between gap-4 border-b px-5 py-2.5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <div
             aria-hidden
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary text-[12px] font-medium text-[#f8fafc]"
+            className="bg-primary flex h-8 w-8 flex-none items-center justify-center rounded-full text-[12px] font-medium text-[#f8fafc]"
           >
             {initialsOf(contact.displayName)}
           </div>
@@ -80,7 +80,7 @@ export function ThreadView({
             <h2 className="truncate text-[14px] font-semibold">
               {contact.displayName}
             </h2>
-            <div className="truncate font-mono text-[11px] text-text-secondary">
+            <div className="text-text-secondary truncate font-mono text-[11px]">
               {conversation.channel} · {truncateLineUserId(contact.lineUserId)}
             </div>
           </div>
@@ -96,7 +96,7 @@ export function ThreadView({
             onChange={(event) =>
               onStatusChange(event.target.value as ConversationStatus)
             }
-            className="h-8 cursor-pointer rounded-control border border-border-default bg-surface px-2 text-[13px] font-medium outline-none"
+            className="rounded-control border-border-default bg-surface h-8 cursor-pointer border px-2 text-[13px] font-medium outline-none"
           >
             {STATUSES.map((option) => (
               <option key={option} value={option}>
@@ -118,7 +118,7 @@ export function ThreadView({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3.5 overflow-y-auto bg-bg px-6 py-5">
+      <div className="bg-bg flex flex-1 flex-col gap-3.5 overflow-y-auto px-6 py-5">
         {/* D-026: only offered when the server says there is more history. */}
         {hasMore && (
           <div className="self-center">
@@ -126,7 +126,7 @@ export function ThreadView({
               type="button"
               onClick={onLoadMore}
               disabled={loadingMore}
-              className="rounded-pill border border-border-default bg-surface px-3 py-[5px] text-[12px] text-[#475569] hover:bg-border-subtle disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-pill border-border-default bg-surface hover:bg-border-subtle border px-3 py-[5px] text-[12px] text-[#475569] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loadingMore ? "Loading…" : "Load full history"}
             </button>
@@ -141,7 +141,7 @@ export function ThreadView({
 
         {messages.length === 0 && !loadingMore ? (
           // Negative case (T-007): an empty thread renders an empty state, not a spinner.
-          <p className="m-auto text-[13px] text-text-secondary">
+          <p className="text-text-secondary m-auto text-[13px]">
             No messages in this conversation yet.
           </p>
         ) : (

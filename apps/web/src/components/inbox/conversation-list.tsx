@@ -37,15 +37,15 @@ export function ConversationList({
   const totals = data?.totals;
 
   return (
-    <div className="flex min-h-0 max-w-[300px] flex-1 basis-[300px] flex-col border-r border-border-default max-lg:hidden lg:min-w-[240px]">
-      <div className="flex flex-col gap-2.5 border-b border-border-default p-3.5">
+    <div className="border-border-default flex min-h-0 max-w-[300px] flex-1 basis-[300px] flex-col border-r max-lg:hidden lg:min-w-[240px]">
+      <div className="border-border-default flex flex-col gap-2.5 border-b p-3.5">
         <input
           type="search"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}
           placeholder="Search people or messages…"
           aria-label="Search people or messages"
-          className="h-[34px] rounded-control border border-border-default bg-surface px-3 text-[13px] outline-none focus:border-text-muted focus:shadow-[0_0_0_3px_rgba(9,9,11,0.06)]"
+          className="rounded-control border-border-default bg-surface focus:border-text-muted h-[34px] border px-3 text-[13px] outline-none focus:shadow-[0_0_0_3px_rgba(9,9,11,0.06)]"
         />
         <FilterPills value={filter} onChange={onFilterChange} />
       </div>
@@ -72,7 +72,7 @@ export function ConversationList({
           need different actions from the admin.
         */}
         {!loading && items.length === 0 && (
-          <p className="px-2 py-6 text-center text-[13px] text-text-secondary">
+          <p className="text-text-secondary px-2 py-6 text-center text-[13px]">
             {search.trim() || filter !== "All"
               ? "No conversations match."
               : "No conversations yet."}
@@ -80,7 +80,7 @@ export function ConversationList({
         )}
       </div>
 
-      <div className="flex-none border-t border-border-default px-3.5 py-2.5 text-[11px] text-text-muted">
+      <div className="border-border-default text-text-muted flex-none border-t px-3.5 py-2.5 text-[11px]">
         {totals
           ? `${totals.matching} of ${totals.all} conversations · ${totals.open} open`
           : ""}

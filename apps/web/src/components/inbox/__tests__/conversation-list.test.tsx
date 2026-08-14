@@ -95,9 +95,7 @@ describe("ConversationList", () => {
 
   it("renders the design's row furniture", () => {
     renderList({
-      data: response([
-        conversation("c1", { status: "Pending", unread: true }),
-      ]),
+      data: response([conversation("c1", { status: "Pending", unread: true })]),
     });
 
     const row = screen.getByRole("option");
@@ -207,7 +205,9 @@ describe("ConversationList", () => {
     renderList({ data: null, loading: true });
 
     expect(screen.queryByText("No conversations yet.")).not.toBeInTheDocument();
-    expect(screen.queryByText("No conversations match.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No conversations match."),
+    ).not.toBeInTheDocument();
   });
 
   it("renders no footer count before any page has arrived", () => {

@@ -3,22 +3,19 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ConversationList } from "@/components/inbox/conversation-list";
+import { DetailsPanel } from "@/components/inbox/details-panel";
 import { ThreadPanel } from "@/components/inbox/thread-panel";
 import type { StatusFilter } from "@/components/inbox/filter-pills";
 import { listConversations, markRead } from "@/lib/api/client";
-import type {
-  Conversation,
-  ConversationListResponse,
-} from "@/lib/api/types";
+import type { Conversation, ConversationListResponse } from "@/lib/api/types";
 
 /**
  * F-002 inbox. The design's three panes: conversation list, thread, details.
  *
- * **The details panel is not built.** T-020 is blocked on OQ-21: D-019 removed
- * assigned-to, tags and internal notes, which was most of what the design put in
- * that panel, and the "session id" field it leaves behind maps to no recorded
- * concept. Scoping its contents would mean inventing them (§3.2). The toggle is
- * in T-007's scope and is wired; the panel it reveals is T-020's deliverable.
+ * The details panel is built (T-020), unblocked by D-052 after sitting on OQ-21
+ * since 2026-08-12. It shows only fields `openapi.yaml` already defines. D-019 is
+ * not reversed — assigned-to, tags and internal notes stay out of scope, and
+ * OQ-35 stays open.
  */
 export default function InboxPage() {
   const [data, setData] = useState<ConversationListResponse | null>(null);
@@ -101,7 +98,7 @@ export default function InboxPage() {
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1 bg-surface">
+    <div className="bg-surface flex min-h-0 flex-1">
       {listVisible && (
         <ConversationList
           data={data}
@@ -131,6 +128,8 @@ export default function InboxPage() {
         detailsVisible={detailsVisible}
         onToggleDetails={() => setDetailsVisible((value) => !value)}
       />
+
+      {detailsVisible && <DetailsPanel conversation={active} />}
     </div>
   );
 }

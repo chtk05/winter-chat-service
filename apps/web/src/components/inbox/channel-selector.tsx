@@ -19,12 +19,12 @@ export const CHANNELS = [
 export function ChannelSelector() {
   return (
     <div className="flex flex-wrap items-center gap-2.5">
-      <span className="text-[12px] text-text-secondary">Reply via</span>
+      <span className="text-text-secondary text-[12px]">Reply via</span>
 
       <div
         role="group"
         aria-label="Reply channel"
-        className="flex gap-1 rounded-control bg-border-subtle p-[3px]"
+        className="rounded-control bg-border-subtle flex gap-1 p-[3px]"
       >
         {CHANNELS.map((channel) => (
           <button
@@ -42,10 +42,10 @@ export function ChannelSelector() {
               cursor: channel.enabled ? "pointer" : "not-allowed",
             }}
             className={[
-              "whitespace-nowrap rounded-chip px-2.5 py-1 text-[12px] font-medium",
+              "rounded-chip px-2.5 py-1 text-[12px] font-medium whitespace-nowrap",
               channel.enabled
                 ? "bg-surface text-text-primary shadow-[0_1px_2px_rgba(9,9,11,0.08)]"
-                : "bg-transparent text-text-secondary",
+                : "text-text-secondary bg-transparent",
             ].join(" ")}
           >
             {channel.label}
@@ -53,7 +53,7 @@ export function ChannelSelector() {
         ))}
       </div>
 
-      <span className="text-[11px] text-text-muted">
+      <span className="text-text-muted text-[11px]">
         More channels can be added later
       </span>
     </div>

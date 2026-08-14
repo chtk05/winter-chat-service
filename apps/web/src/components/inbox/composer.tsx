@@ -33,7 +33,7 @@ export function Composer({
   };
 
   return (
-    <div className="flex flex-none flex-col gap-2.5 border-t border-border-default bg-surface px-6 pb-3.5 pt-3">
+    <div className="border-border-default bg-surface flex flex-none flex-col gap-2.5 border-t px-6 pt-3 pb-3.5">
       <ChannelSelector />
 
       <div className="flex flex-wrap items-center gap-2.5">
@@ -48,7 +48,7 @@ export function Composer({
           }}
           placeholder={`Reply to ${contactName} on LINE…`}
           aria-label="Reply message"
-          className="h-[38px] min-w-[200px] flex-1 basis-60 rounded-control border border-border-default bg-surface px-3.5 text-[14px] outline-none focus:border-text-muted focus:shadow-[0_0_0_3px_rgba(9,9,11,0.06)]"
+          className="rounded-control border-border-default bg-surface focus:border-text-muted h-[38px] min-w-[200px] flex-1 basis-60 border px-3.5 text-[14px] outline-none focus:shadow-[0_0_0_3px_rgba(9,9,11,0.06)]"
         />
 
         <div className="ml-auto flex items-center gap-2.5">
@@ -56,7 +56,7 @@ export function Composer({
             type="button"
             onClick={() => submit(true)}
             disabled={!canSend}
-            className="h-[38px] flex-none whitespace-nowrap rounded-control border border-border-default bg-surface px-3.5 text-[13px] font-medium text-text-primary hover:bg-border-subtle disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-control border-border-default bg-surface text-text-primary hover:bg-border-subtle h-[38px] flex-none border px-3.5 text-[13px] font-medium whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send &amp; close
           </button>
@@ -64,7 +64,7 @@ export function Composer({
             type="button"
             onClick={() => submit(false)}
             disabled={!canSend}
-            className="h-[38px] flex-none whitespace-nowrap rounded-control bg-primary px-4 text-[13px] font-medium text-[#f8fafc] hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-control bg-primary hover:bg-primary-hover h-[38px] flex-none px-4 text-[13px] font-medium whitespace-nowrap text-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Send reply
           </button>

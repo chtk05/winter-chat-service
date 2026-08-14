@@ -26,17 +26,17 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
   const pathname = usePathname();
 
   return (
-    <header className="flex h-14 flex-none items-center justify-between gap-6 border-b border-border-default bg-surface px-5">
+    <header className="border-border-default bg-surface flex h-14 flex-none items-center justify-between gap-6 border-b px-5">
       <div className="flex min-w-0 items-center gap-2.5">
         <BrandMark />
-        <div className="whitespace-nowrap rounded-chip border border-border-default px-1.5 py-0.5 font-mono text-[11px] text-text-secondary">
+        <div className="rounded-chip border-border-default text-text-secondary border px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap">
           admin console
         </div>
       </div>
 
       <nav
         aria-label="Console sections"
-        className="flex flex-none items-center gap-1 rounded-control bg-border-subtle p-1"
+        className="rounded-control bg-border-subtle flex flex-none items-center gap-1 p-1"
       >
         {TABS.map((tab) => {
           const active = pathname?.startsWith(tab.href) ?? false;
@@ -46,10 +46,10 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={[
-                "whitespace-nowrap rounded-chip px-3.5 py-1.5 text-[13px] font-medium no-underline",
+                "rounded-chip px-3.5 py-1.5 text-[13px] font-medium whitespace-nowrap no-underline",
                 active
                   ? "bg-surface text-text-primary shadow-[0_1px_2px_rgba(9,9,11,0.08)]"
-                  : "bg-transparent text-text-secondary",
+                  : "text-text-secondary bg-transparent",
               ].join(" ")}
             >
               {tab.label}
@@ -65,7 +65,7 @@ export function TopBar({ onSignOut }: { onSignOut?: () => void }) {
           onClick={onSignOut}
           title="Sign out"
           aria-label="Sign out"
-          className="flex h-7 w-7 items-center justify-center rounded-full border border-border-default bg-border-subtle text-[#475569] hover:bg-border-default"
+          className="border-border-default bg-border-subtle hover:bg-border-default flex h-7 w-7 items-center justify-center rounded-full border text-[#475569]"
         >
           <LogOut aria-hidden className="h-3.5 w-3.5" />
         </button>

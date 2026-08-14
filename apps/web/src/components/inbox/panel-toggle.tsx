@@ -11,19 +11,27 @@ export function PanelToggle({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex h-8 items-center gap-2 rounded-control border border-border-default px-3">
-      <span className="whitespace-nowrap text-[12px] text-text-secondary">
+    <div className="rounded-control border-border-default flex h-8 items-center gap-2 border px-3">
+      <span className="text-text-secondary text-[12px] whitespace-nowrap">
         {label}
       </span>
       <button
         type="button"
         role="switch"
         aria-checked={pressed}
-        aria-label={pressed ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
-        title={pressed ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+        aria-label={
+          pressed
+            ? `Hide ${label.toLowerCase()}`
+            : `Show ${label.toLowerCase()}`
+        }
+        title={
+          pressed
+            ? `Hide ${label.toLowerCase()}`
+            : `Show ${label.toLowerCase()}`
+        }
         onClick={onToggle}
         style={{ background: pressed ? "#2563eb" : "#cbd5e1" }}
-        className="relative h-[18px] w-[34px] flex-none rounded-pill p-0"
+        className="rounded-pill relative h-[18px] w-[34px] flex-none p-0"
       >
         <span
           aria-hidden

@@ -64,26 +64,26 @@ export function ConversationRow({
           <div className="truncate text-[13px] font-semibold">
             {contact.displayName}
           </div>
-          <div className="flex-none text-[11px] text-text-muted">
+          <div className="text-text-muted flex-none text-[11px]">
             {formatRowTimestamp(lastMessageAt, now)}
           </div>
         </div>
 
         <div className="flex items-center gap-1.5">
-          <div className="min-w-0 flex-1 truncate text-[12px] text-text-secondary">
+          <div className="text-text-secondary min-w-0 flex-1 truncate text-[12px]">
             {snippet ?? ""}
           </div>
           {unread && (
             <span
               data-testid="unread-dot"
               aria-label="Unread"
-              className="h-[7px] w-[7px] flex-none rounded-full bg-accent"
+              className="bg-accent h-[7px] w-[7px] flex-none rounded-full"
             />
           )}
         </div>
 
         <div className="mt-1.5 flex items-center gap-1.5">
-          <span className="rounded-[4px] border border-border-default px-1.5 py-px font-mono text-[10px] text-[#475569]">
+          <span className="border-border-default rounded-[4px] border px-1.5 py-px font-mono text-[10px] text-[#475569]">
             {channel}
           </span>
           <StatusPill status={status} />
