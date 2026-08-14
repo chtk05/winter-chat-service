@@ -22,6 +22,7 @@ export function createStorageClient(
             method: "POST",
             headers: {
               Authorization: `Bearer ${config.serviceRoleKey}`,
+              apikey: config.serviceRoleKey,
               "Content-Type": contentType,
               "x-upsert": "true",
             },
@@ -30,7 +31,10 @@ export function createStorageClient(
         );
 
         if (!response.ok) {
-          console.warn(`[storage] upload failed: ${response.status}`);
+          const detail = await response.text().catch(() => "");
+          console.warn(
+            `[storage] upload failed: ${response.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`,
+          );
           return null;
         }
 
