@@ -10,7 +10,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "prisma generate && DATABASE_URL=\"$DIRECT_URL\" prisma migrate deploy && next build",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "test:integration": "jest --config jest.integration.config.mjs"

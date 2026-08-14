@@ -1,7 +1,7 @@
 import { SignJWT } from "jose";
 import { NextRequest } from "next/server";
 
-import { middleware } from "@/middleware";
+import { proxy } from "@/proxy";
 
 const SECRET = "a-test-signing-secret-of-at-least-32-chars";
 const OTHER_DEPLOYMENT_SECRET = "a-different-signing-secret-32-chars-long!";
@@ -49,9 +49,9 @@ function passedThrough(response: { headers: Headers }): boolean {
   return response.headers.get("x-middleware-next") === "1";
 }
 
-describe("middleware — positive cases (D-039, D-046)", () => {
+describe("proxy — positive cases (D-039, D-046)", () => {
   it("lets a member through to a protected route", async () => {
-    const response = await middleware(
+    const response = await proxy(
       request("/api/conversations", await mintToken({ member: true })),
     );
 
@@ -59,7 +59,7 @@ describe("middleware — positive cases (D-039, D-046)", () => {
   });
 
   it("lets a non-member through to the join endpoint (D-046 bootstrap)", async () => {
-    const response = await middleware(
+    const response = await proxy(
       request("/api/auth/join", await mintToken({ member: false })),
     );
 
@@ -67,15 +67,15 @@ describe("middleware — positive cases (D-039, D-046)", () => {
   });
 
   it("lets the LINE webhook through with no token at all (D-012)", async () => {
-    const response = await middleware(request("/api/line/webhook"));
+    const response = await proxy(request("/api/line/webhook"));
 
     expect(passedThrough(response)).toBe(true);
   });
 });
 
-describe("middleware — negative cases", () => {
+describe("proxy — negative cases", () => {
   it("answers 401 when no Authorization header is present", async () => {
-    const response = await middleware(request("/api/conversations"));
+    const response = await proxy(request("/api/conversations"));
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toMatchObject({
@@ -87,13 +87,13 @@ describe("middleware — negative cases", () => {
     ["a malformed token", "not-a-jwt"],
     ["an empty token", ""],
   ])("answers 401 for %s", async (_label, token) => {
-    const response = await middleware(request("/api/conversations", token));
+    const response = await proxy(request("/api/conversations", token));
 
     expect(response.status).toBe(401);
   });
 
   it("answers 401 for a token signed with a different secret (D-039 drift)", async () => {
-    const response = await middleware(
+    const response = await proxy(
       request(
         "/api/conversations",
         await mintToken({ secret: OTHER_DEPLOYMENT_SECRET }),
@@ -104,7 +104,7 @@ describe("middleware — negative cases", () => {
   });
 
   it("answers 401 for an expired token", async () => {
-    const response = await middleware(
+    const response = await proxy(
       request(
         "/api/conversations",
         await mintToken({ issuedAt: new Date(Date.now() - 3600_000) }),
@@ -115,7 +115,7 @@ describe("middleware — negative cases", () => {
   });
 
   it("answers 403 NOT_A_MEMBER for a valid token whose `member` claim is false (D-036, D-051)", async () => {
-    const response = await middleware(
+    const response = await proxy(
       request("/api/conversations", await mintToken({ member: false })),
     );
 
@@ -134,7 +134,7 @@ describe("middleware — negative cases", () => {
       "/api/dashboard/summary",
       "/api/messages/abc/retry",
     ]) {
-      const response = await middleware(request(path, token));
+      const response = await proxy(request(path, token));
       expect(response.status).toBe(403);
     }
   });
@@ -145,9 +145,7 @@ describe("middleware — negative cases", () => {
       .spyOn(console, "error")
       .mockImplementation(() => {});
 
-    const response = await middleware(
-      request("/api/conversations", "irrelevant"),
-    );
+    const response = await proxy(request("/api/conversations", "irrelevant"));
 
     expect(response.status).toBe(500);
     consoleError.mockRestore();
@@ -156,20 +154,20 @@ describe("middleware — negative cases", () => {
   it("still lets the webhook through when the environment is broken", async () => {
     delete process.env.SESSION_SECRET;
 
-    const response = await middleware(request("/api/line/webhook"));
+    const response = await proxy(request("/api/line/webhook"));
 
     expect(passedThrough(response)).toBe(true);
   });
 });
 
-describe("D-039: middleware sets no cookies", () => {
+describe("D-039: proxy sets no cookies", () => {
   it.each([
     ["a 401", undefined],
     ["a 403", "member-false"],
   ])("emits no Set-Cookie header on %s", async (_label, kind) => {
     const token =
       kind === "member-false" ? await mintToken({ member: false }) : undefined;
-    const response = await middleware(request("/api/conversations", token));
+    const response = await proxy(request("/api/conversations", token));
 
     expect(response.headers.get("set-cookie")).toBeNull();
   });
