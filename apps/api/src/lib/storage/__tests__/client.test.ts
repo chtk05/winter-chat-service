@@ -57,6 +57,7 @@ describe("createStorageClient.upload — positive cases (D-058)", () => {
         method: "POST",
         headers: {
           Authorization: `Bearer ${CONFIG.serviceRoleKey}`,
+          apikey: CONFIG.serviceRoleKey,
           "Content-Type": "image/png",
           "x-upsert": "true",
         },
