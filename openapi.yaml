@@ -43,8 +43,10 @@ paths:
       tags: [auth]
       summary: Exchange the workspace access code for a session
       description: |
-        D-002, D-008, D-011, D-017. On success sets a signed httpOnly secure cookie with
+        D-002, D-008, D-017. On success sets a signed httpOnly secure cookie with
         a 7-day lifetime. The code itself does not expire and is not single-use.
+        D-032 (2026-08-13) removed the per-IP rate limit D-011 originally put here —
+        this route no longer answers 429.
       security: []
       requestBody:
         required: true
@@ -65,7 +67,10 @@ paths:
           headers:
             Set-Cookie:
               schema: { type: string }
-              description: Signed, httpOnly, Secure, SameSite=Lax, Max-Age 604800.
+              # D-029 supersedes the original `SameSite=Lax` here. D-025 made apps/api a
+              # second origin, so a Lax cookie would never be sent on the console's
+              # cross-origin fetch. Paired with a credentialed CORS allow-list.
+              description: Signed, httpOnly, Secure, SameSite=None, Max-Age 604800.
         '400':
           $ref: '#/components/responses/BadRequest'
           description: Missing or empty code.
@@ -75,8 +80,6 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
               example: { error: { code: INVALID_ACCESS_CODE, message: That access code didn't work, ref: 4471-A } }
-        '429':
-          $ref: '#/components/responses/RateLimited'
 
   /auth/logout:
     post:
@@ -212,7 +215,7 @@ paths:
     get:
       tags: [messages]
       summary: Thread history, newest last, paged backwards
-      description: F-002 item 3. Backs the design's "Load full history" control.
+      description: F-002 item 3. Backs the design's 'Load full history' control.
       parameters:
         - name: before
           in: query
@@ -248,7 +251,7 @@ paths:
         `sending` and resolves to `sent` or `failed`; the resolution reaches the client
         over Supabase Realtime (D-005), not in this response.
 
-        `closeAfterSend` implements the design's "Send & close" (D-019): status becomes
+        `closeAfterSend` implements the design's 'Send & close' (D-019): status becomes
         `Closed` only if the send itself succeeds.
       requestBody:
         required: true
@@ -342,7 +345,12 @@ paths:
       responses:
         '200': { description: Events accepted, or ignored as duplicates. }
         '400': { description: Malformed payload. Not retried by LINE. }
-        '401': { description: Missing, malformed, or incorrect signature. Nothing is written. }
+        '401':
+          {
+            description: Missing,
+            malformed,
+            or incorrect signature. Nothing is written.,
+          }
 
   /dashboard/summary:
     get:
@@ -395,15 +403,6 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
-    RateLimited:
-      description: Too many failed attempts from this IP (D-011).
-      headers:
-        Retry-After:
-          schema: { type: integer }
-          description: Seconds until attempts are accepted again.
-      content:
-        application/json:
-          schema: { $ref: '#/components/schemas/Error' }
 
   schemas:
     Error:
@@ -424,7 +423,7 @@ components:
               type: string
               description: |
                 Short support reference, surfaced in the design's error cards
-                ("error INVITE_INVALID · ref 4471-A").
+                ('error INVITE_INVALID · ref 4471-A').
 
     ConversationStatus:
       type: string
@@ -448,7 +447,7 @@ components:
         id: { type: string }
         lineUserId:
           type: string
-          description: Shown truncated in the details panel ("U8f2c…4471").
+          description: Shown truncated in the details panel ('U8f2c…4471').
         displayName:
           type: string
           description: |
@@ -516,13 +515,22 @@ components:
           type: [string, 'null']
           enum: [reply, push, null]
           description: |
-            Which LINE API delivered it (D-006). Backs the design's "sent to LINE" badge.
+            Which LINE API delivered it (D-006). Backs the design's 'sent to LINE' badge.
         createdAt: { type: string, format: date-time }
 
     DashboardSummary:
       type: object
       description: F-003 metrics only (D-020).
-      required: [range, generatedAt, totalContacts, activeToday, unread, messages, recentActivity]
+      required:
+        [
+          range,
+          generatedAt,
+          totalContacts,
+          activeToday,
+          unread,
+          messages,
+          recentActivity,
+        ]
       properties:
         range: { type: string, enum: [today, 7d] }
         generatedAt: { type: string, format: date-time }
