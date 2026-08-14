@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
@@ -34,7 +34,7 @@ import {
  */
 const POLL_INTERVAL_MS = 8000;
 
-export default function InboxPage() {
+function InboxScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -179,8 +179,6 @@ export default function InboxPage() {
             );
           })
           .catch(() => {
-            // The badge stays until the server confirms — read state is
-            // workspace-wide, so a failed call must not fake it.
           });
       }
     },
@@ -254,5 +252,13 @@ export default function InboxPage() {
         onBack={() => setDetailsVisible(false)}
       />
     </div>
+  );
+}
+
+export default function InboxPage() {
+  return (
+    <Suspense fallback={null}>
+      <InboxScreen />
+    </Suspense>
   );
 }
