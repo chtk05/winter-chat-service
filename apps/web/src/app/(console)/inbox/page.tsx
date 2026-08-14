@@ -9,7 +9,7 @@ import { DetailsPanel } from "@/components/inbox/details-panel";
 import { ThreadPanel } from "@/components/inbox/thread-panel";
 import type { StatusFilter } from "@/components/inbox/filter-pills";
 import { toastManager } from "@/components/ui/toast";
-import { useVisibleInterval } from "@/lib/hooks/use-visible-interval";
+import { useInboxLive } from "@/lib/hooks/use-inbox-live";
 import { getConversation, listConversations, markRead } from "@/lib/api/client";
 import type { Conversation, ConversationListResponse } from "@/lib/api/types";
 import {
@@ -19,21 +19,11 @@ import {
 } from "@/lib/thread/activity";
 
 /**
- * "Live" here means polling through the SAME authenticated `/gateway` path every
- * other request already uses, not a push-based Supabase Realtime subscription.
- * Real Realtime needs the public anon key readable by Postgres row-level security,
- * and this app has no way for RLS to tell "an authenticated WinterChat member" apart
- * from anyone else holding that (page-bundled, effectively public) key — auth here
- * is LINE Login + NextAuth, not Supabase Auth. Raised directly and confirmed:
- * polling is the accepted tradeoff, not an oversight.
- *
- * Paused entirely while the tab is hidden (`useVisibleInterval`) — an admin who
- * tabbed away should not generate a request every few seconds for a chat they
- * are not looking at, and this was visibly the bulk of the request volume in
- * the user's own network tab.
+ * Live updates hang on `/gateway/sync` (authenticated long-poll) instead of a
+ * fixed interval. The API watches `conversations.lastMessageAt`, which inbound
+ * LINE messages bump, then this page refetches the list and open thread.
+ * Hidden tabs abort the wait and refresh once on return.
  */
-const POLL_INTERVAL_MS = 8000;
-
 function InboxScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +36,7 @@ function InboxScreen() {
   const [active, setActive] = useState<Conversation | null>(null);
   const [listVisible, setListVisible] = useState(true);
   const [detailsVisible, setDetailsVisible] = useState(true);
+  const [liveRevision, setLiveRevision] = useState(0);
 
   /**
    * Deep-links from `GlobalSearch` (or anywhere else) land at `/inbox?open=<id>`.
@@ -118,10 +109,10 @@ function InboxScreen() {
   }, [filter, search]);
 
   /**
-   * Polls the same list in the background so newly-arrived conversations and
-   * messages show up without a manual reload. Runs alongside the effect above,
-   * not instead of it — that one owns "the user changed what they're looking at"
-   * and the loading skeleton; this one is the quiet periodic refresh.
+   * Refetches the list when `/sync` reports new inbound activity (or the tab
+   * becomes visible again). Runs alongside the effect above, not instead of it
+   * — that one owns "the user changed what they're looking at" and the loading
+   * skeleton; this one is the live refresh.
    */
   const pollConversations = useCallback(() => {
     listConversations({
@@ -145,15 +136,27 @@ function InboxScreen() {
 
         knownRef.current = snapshotConversations(page.items);
         setData(page);
+        setActive((current) => {
+          if (!current) {
+            return current;
+          }
+          const next = page.items.find((item) => item.id === current.id);
+          return next ? { ...current, ...next } : current;
+        });
       })
       .catch(() => {
-        // A failed background poll just leaves the list as it was; the next
-        // tick tries again. Surfacing an error here would be noisier than
-        // useful for a check that runs every few seconds.
+        // A failed background refresh just leaves the list as it was; the next
+        // sync tick tries again. Surfacing an error here would be noisier than
+        // useful for a check that runs on every inbound message.
       });
   }, [filter, search]);
 
-  useVisibleInterval(pollConversations, POLL_INTERVAL_MS);
+  const refreshLive = useCallback(() => {
+    pollConversations();
+    setLiveRevision((revision) => revision + 1);
+  }, [pollConversations]);
+
+  useInboxLive(refreshLive);
 
   const handleSelect = useCallback(
     (conversationId: string) => {
@@ -178,8 +181,7 @@ function InboxScreen() {
                 : current,
             );
           })
-          .catch(() => {
-          });
+          .catch(() => {});
       }
     },
     [data],
@@ -243,6 +245,7 @@ function InboxScreen() {
         onToggleDetails={() => setDetailsVisible((value) => !value)}
         mobileVisible={mobilePane === "thread"}
         onBackToList={() => setActive(null)}
+        liveRevision={liveRevision}
       />
 
       <DetailsPanel

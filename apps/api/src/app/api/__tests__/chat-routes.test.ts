@@ -8,9 +8,11 @@ import {
 import { GET as getMessages } from "@/app/api/conversations/[conversationId]/messages/route";
 import { POST as postRead } from "@/app/api/conversations/[conversationId]/read/route";
 import { GET as getSummary } from "@/app/api/dashboard/summary/route";
+import { GET as getSync } from "@/app/api/sync/route";
 import {
   getConversationStore,
   getDashboardStore,
+  getSyncStore,
   getThreadStore,
 } from "@/lib/db/prisma";
 import type { ConversationRow } from "@/lib/services/chat-types";
@@ -19,11 +21,13 @@ jest.mock("@/lib/db/prisma", () => ({
   getConversationStore: jest.fn(),
   getThreadStore: jest.fn(),
   getDashboardStore: jest.fn(),
+  getSyncStore: jest.fn(),
 }));
 
 const conversationStoreMock = getConversationStore as jest.Mock;
 const threadStoreMock = getThreadStore as jest.Mock;
 const dashboardStoreMock = getDashboardStore as jest.Mock;
+const syncStoreMock = getSyncStore as jest.Mock;
 
 const CONVERSATION: ConversationRow = {
   id: "c-1",
@@ -96,6 +100,12 @@ beforeEach(() => {
     },
     async listRecentActivity() {
       return [];
+    },
+  });
+
+  syncStoreMock.mockReturnValue({
+    async latestActivityAt() {
+      return CONVERSATION.lastMessageAt;
     },
   });
 });
@@ -266,6 +276,39 @@ describe("GET /api/dashboard/summary", () => {
   });
 });
 
+describe("GET /api/sync", () => {
+  it("answers the current watermark immediately when since is omitted", async () => {
+    const response = await getSync(get("/api/sync"));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      changed: false,
+      at: CONVERSATION.lastMessageAt.toISOString(),
+    });
+  });
+
+  it("answers changed when activity is newer than since", async () => {
+    const response = await getSync(
+      get("/api/sync?since=2026-08-13T08:00:00.000Z"),
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      changed: true,
+      at: CONVERSATION.lastMessageAt.toISOString(),
+    });
+  });
+
+  it("answers 400 for a malformed since timestamp", async () => {
+    const response = await getSync(get("/api/sync?since=yesterday"));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "BAD_REQUEST" },
+    });
+  });
+});
+
 describe("D-039: no chat route sets a cookie", () => {
   it("emits no Set-Cookie header anywhere", async () => {
     const responses = [
@@ -274,6 +317,7 @@ describe("D-039: no chat route sets a cookie", () => {
       await postRead(get("/x"), params()),
       await getMessages(get("/x"), params()),
       await getSummary(get("/api/dashboard/summary")),
+      await getSync(get("/api/sync")),
     ];
 
     for (const response of responses) {

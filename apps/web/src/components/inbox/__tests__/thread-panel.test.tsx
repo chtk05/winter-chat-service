@@ -575,3 +575,61 @@ describe("paging (D-026)", () => {
     expect(screen.getAllByTestId("message-bubble")).toHaveLength(1);
   });
 });
+
+describe("live inbox revision", () => {
+  it("merges newly arrived messages when liveRevision increments", async () => {
+    api.listMessages
+      .mockResolvedValueOnce({
+        items: [persisted({ id: "m1", clientId: null, text: "first" })],
+        hasMore: false,
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        items: [
+          persisted({ id: "m1", clientId: null, text: "first" }),
+          persisted({
+            id: "m2",
+            clientId: null,
+            text: "just arrived",
+            direction: "inbound",
+          }),
+        ],
+        hasMore: false,
+        nextCursor: null,
+      });
+
+    const { rerender } = render(
+      <ThreadPanel
+        conversation={CONVERSATION}
+        onConversationChange={jest.fn()}
+        listVisible
+        onToggleList={jest.fn()}
+        detailsVisible={false}
+        onToggleDetails={jest.fn()}
+        idFactory={() => "client-uuid-1"}
+        now={() => FIXED_NOW}
+        liveRevision={0}
+      />,
+    );
+
+    expect(await screen.findByText("first")).toBeInTheDocument();
+    expect(api.listMessages).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <ThreadPanel
+        conversation={CONVERSATION}
+        onConversationChange={jest.fn()}
+        listVisible
+        onToggleList={jest.fn()}
+        detailsVisible={false}
+        onToggleDetails={jest.fn()}
+        idFactory={() => "client-uuid-1"}
+        now={() => FIXED_NOW}
+        liveRevision={1}
+      />,
+    );
+
+    expect(await screen.findByText("just arrived")).toBeInTheDocument();
+    expect(api.listMessages).toHaveBeenCalledTimes(2);
+  });
+});

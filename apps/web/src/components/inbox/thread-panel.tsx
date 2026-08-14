@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Composer } from "./composer";
 import { ThreadView } from "./thread-view";
 import { toastManager } from "@/components/ui/toast";
-import { useVisibleInterval } from "@/lib/hooks/use-visible-interval";
 import {
   markFailed,
   mergeOlderPage,
@@ -30,15 +29,6 @@ export type IdFactory = () => string;
 
 const defaultIdFactory: IdFactory = () => crypto.randomUUID();
 
-/** Same cadence as the conversation list's background poll (`inbox/page.tsx`) —
- * no push-based Realtime here for the same reason: this app's auth is LINE Login
- * + NextAuth, not Supabase Auth, so Postgres RLS has no way to scope a Realtime
- * subscription to "an authenticated member" versus anyone holding the public
- * anon key. Confirmed with the user; polling through the existing authenticated
- * path is the accepted tradeoff. Paused while the tab is hidden, same as the
- * conversation list's poll (`useVisibleInterval`). */
-const POLL_INTERVAL_MS = 8000;
-
 export function ThreadPanel({
   conversation,
   onConversationChange,
@@ -50,6 +40,7 @@ export function ThreadPanel({
   now = () => new Date(),
   mobileVisible = true,
   onBackToList,
+  liveRevision = 0,
 }: {
   conversation: Conversation | null;
   onConversationChange: (conversation: Conversation) => void;
@@ -61,6 +52,7 @@ export function ThreadPanel({
   now?: () => Date;
   mobileVisible?: boolean;
   onBackToList?: () => void;
+  liveRevision?: number;
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -98,11 +90,11 @@ export function ThreadPanel({
   }, [conversationId]);
 
   /**
-   * Polls the open thread's latest page so a contact's new message appears
-   * without leaving and reopening the conversation. Each fetched message is
-   * merged one at a time through the same `upsertMessage` reducer the send path
-   * uses — a message not yet visible server-side (still `sending` locally) simply
-   * has no match and is left alone; nothing here can clobber an in-flight send.
+   * Merges the open thread's latest page when inbox live-sync fires, so a
+   * contact's new message appears without leaving and reopening. Each fetched
+   * message goes through the same `upsertMessage` reducer the send path uses —
+   * a message not yet visible server-side (still `sending` locally) simply has
+   * no match and is left alone; nothing here can clobber an in-flight send.
    */
   const pollMessages = useCallback(() => {
     if (!conversationId) return;
@@ -117,12 +109,21 @@ export function ThreadPanel({
         );
       })
       .catch(() => {
-        // A missed background refresh is not worth surfacing — the next tick
-        // tries again, and the thread's own retry/reload controls still work.
+        // A missed background refresh is not worth surfacing — the next live
+        // tick tries again, and the thread's own retry/reload controls still work.
       });
   }, [conversationId]);
 
-  useVisibleInterval(pollMessages, POLL_INTERVAL_MS);
+  const pollMessagesRef = useRef(pollMessages);
+  pollMessagesRef.current = pollMessages;
+
+  useEffect(() => {
+    if (liveRevision < 1) {
+      return;
+    }
+
+    pollMessagesRef.current();
+  }, [liveRevision]);
 
   const handleLoadMore = useCallback(async () => {
     if (!conversationId || loadingMore || !oldestCursor) return;
